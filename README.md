@@ -32,26 +32,38 @@ A comprehensive CLI tool for analyzing YouTube channel performance with a focus 
 ### Real-time Reports
 ```bash
 # Organic views (excluding advertising)
-python youtube_stats.py --organic
+,organic
 
 # YouTube search traffic only
-python youtube_stats.py --search
+,search
 
 # Top search keywords for your channel
-python youtube_stats.py --keywords
+,keywords
 
 # All reports at once
-python youtube_stats.py --all
+,all
 ```
 
 ### Historical Analysis
 ```bash
 # Store historical data for a video
-python youtube_stats.py --sync Q8tw6YTD3ac
+,sync Q8tw6YTD3ac
 
 # Analyze first week performance by traffic source
-python youtube_stats.py --first-week --traffic-source SUBSCRIBER
-python youtube_stats.py --first-week --traffic-source YT_SEARCH
+,first-week SUBSCRIBER
+,first-week YT_SEARCH
+```
+
+### Utility Functions
+```bash
+# Load functions (run this first)
+source util/functions
+
+# Get help with available commands
+,help
+
+# Set up virtual environment
+,setup-venv
 ```
 
 ## Traffic Sources
