@@ -1,0 +1,98 @@
+#!/bin/bash
+
+echo "YouTube Analytics utility functions loaded"
+
+,setup-venv() {
+    # Check if venv exists, if not create it
+    if [ ! -d "venv" ]; then
+        echo "Creating virtual environment..."
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+        echo "Virtual environment setup complete"
+    else
+        # Just activate if it exists
+        source venv/bin/activate
+        echo "Virtual environment activated"
+    fi
+}
+
+,organic() {
+    # Show organic views (excluding advertising)
+    ,setup-venv
+    python youtube_stats.py --organic "$@"
+}
+
+,search() {
+    # Show YouTube search traffic analysis
+    ,setup-venv
+    python youtube_stats.py --search "$@"
+}
+
+,keywords() {
+    # Show top search keywords for channel
+    ,setup-venv
+    python youtube_stats.py --keywords "$@"
+}
+
+,all() {
+    # Run all reports (organic, search, keywords)
+    ,setup-venv
+    python youtube_stats.py --all "$@"
+}
+
+,sync() {
+    # Sync video data to database
+    local video_id="$1"
+    if [ -z "$video_id" ]; then
+        echo "Error: Please provide a video ID" >&2
+        echo "Usage: ,sync VIDEO_ID" >&2
+        echo "Example: ,sync Q8tw6YTD3ac" >&2
+        return 1
+    fi
+    ,setup-venv
+    python youtube_stats.py --sync "$video_id" "$@"
+}
+
+,first-week() {
+    # Analyze first week performance by traffic source
+    local traffic_source="$1"
+    if [ -z "$traffic_source" ]; then
+        echo "Error: Please provide a traffic source" >&2
+        echo "Usage: ,first-week TRAFFIC_SOURCE" >&2
+        echo "Available sources: ADVERTISING, YT_SEARCH, SUBSCRIBER, EXT_URL, RELATED_VIDEO, YT_CHANNEL, PLAYLIST, NOTIFICATION, NO_LINK_OTHER, YT_OTHER_PAGE" >&2
+        return 1
+    fi
+    ,setup-venv
+    python youtube_stats.py --first-week --traffic-source "$traffic_source" "${@:2}"
+}
+
+,help() {
+    echo "YouTube Analytics Tool - Available Functions:"
+    echo ""
+    echo "Setup:"
+    echo "  ,setup-venv          - Create/activate virtual environment"
+    echo ""
+    echo "Reports:"
+    echo "  ,organic             - Show organic views (excluding advertising)"
+    echo "  ,search              - Show YouTube search traffic analysis"
+    echo "  ,keywords            - Show top search keywords for channel"
+    echo "  ,all                 - Run all reports"
+    echo ""
+    echo "Database:"
+    echo "  ,sync VIDEO_ID       - Store video historical data"
+    echo "  ,first-week SOURCE   - Analyze first week performance by traffic source"
+    echo ""
+    echo "Examples:"
+    echo "  ,organic"
+    echo "  ,sync Q8tw6YTD3ac"
+    echo "  ,first-week YT_SEARCH"
+    echo "  ,first-week SUBSCRIBER"
+    echo ""
+    echo "Traffic Sources:"
+    echo "  ADVERTISING, YT_SEARCH, SUBSCRIBER, EXT_URL, RELATED_VIDEO,"
+    echo "  YT_CHANNEL, PLAYLIST, NOTIFICATION, NO_LINK_OTHER, YT_OTHER_PAGE"
+}
+
+# Show help on load
+,help
