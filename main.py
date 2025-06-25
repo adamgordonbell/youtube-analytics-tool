@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase, DataFetcher
-from youtube_analytics.reports import OrganicViewsReport, SearchTrafficReport, FirstWeekReport, TrafficBreakdownReport, First90DaysSearchReport, First180DaysSearchReport, ShortsDetectionReport
+from youtube_analytics.reports import OrganicViewsReport, SearchTrafficReport, FirstWeekReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
 console = Console()
@@ -36,7 +36,8 @@ def show_welcome():
 @click.option("--organic", is_flag=True, help="Show only organic views report")
 @click.option("--search", is_flag=True, help="Show only search traffic report")  
 @click.option("--first-week", is_flag=True, help="Show first week performance comparison")
-@click.option("--first-90-days-search", is_flag=True, help="Show first 90 days search performance")
+@click.option("--first-90-days-traffic", is_flag=True, help="Show first 90 days traffic performance")
+@click.option("--traffic-source-90", default='YouTube search', help="Traffic source for 90-day analysis")
 @click.option("--first-180-days-search", is_flag=True, help="Show first 180 days search performance")
 @click.option("--shorts", is_flag=True, help="Show Shorts detection report")
 @click.option("--traffic-source", default=TrafficSources.BROWSE_FEATURES, 
@@ -46,7 +47,7 @@ def show_welcome():
 @click.option("--complete-history", is_flag=True, help="When syncing, fetch complete history from publish date to today")
 @click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, organic, search, first_week, first_90_days_search, first_180_days_search, shorts, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
+def main(start, end, max_results, days, organic, search, first_week, first_90_days_traffic, traffic_source_90, first_180_days_search, shorts, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
@@ -136,7 +137,7 @@ def main(start, end, max_results, days, organic, search, first_week, first_90_da
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([organic, search, first_week, first_90_days_search, first_180_days_search, shorts]):
+    if not any([organic, search, first_week, first_90_days_traffic, first_180_days_search, shorts]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
@@ -161,13 +162,13 @@ def main(start, end, max_results, days, organic, search, first_week, first_90_da
         if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source):
             success_count += 1
     
-    if first_90_days_search:
-        # 90-day search report analyzes recent videos
+    if first_90_days_traffic:
+        # 90-day traffic report analyzes recent videos
         recent_end = date.today()
         recent_start = recent_end - timedelta(days=180)  # Look back further for recent videos
         
-        report = First90DaysSearchReport(db, fetcher)
-        if report.run_report(recent_start, recent_end, max_results):
+        report = First90DaysTrafficReport(db, fetcher)
+        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_90):
             success_count += 1
     
     if first_180_days_search:

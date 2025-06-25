@@ -364,8 +364,8 @@ class AnalyticsDatabase:
         
         return missing_ranges
     
-    def get_first_90_days_search(self, video_ids: List[str]) -> Dict[str, Dict]:
-        """Get YouTube search views for first 90 days of each video, broken down by weeks"""
+    def get_first_90_days_traffic(self, video_ids: List[str], traffic_source: str = 'YouTube search') -> Dict[str, Dict]:
+        """Get traffic views for first 90 days of each video, broken down by weeks"""
         if not video_ids:
             return {}
         
@@ -384,11 +384,11 @@ class AnalyticsDatabase:
             LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
             WHERE v.video_id IN ({placeholders})
             AND dm.days_since_published BETWEEN 0 AND 89
-            AND dm.traffic_source = 'YouTube search'
+            AND dm.traffic_source = ?
             ORDER BY v.video_id, dm.days_since_published
         '''
         
-        params = video_ids
+        params = video_ids + [traffic_source]
         cursor.execute(query, params)
         
         results = {}
@@ -398,7 +398,7 @@ class AnalyticsDatabase:
                 results[video_id] = {
                     'title': title,
                     'published_date': published_date,
-                    'total_search_views': 0,
+                    'total_traffic_views': 0,
                     'week_breakdowns': {}  # week_number -> views
                 }
             
@@ -408,7 +408,7 @@ class AnalyticsDatabase:
                 results[video_id]['week_breakdowns'][week_number] = 0
             
             results[video_id]['week_breakdowns'][week_number] += int(views) if views else 0
-            results[video_id]['total_search_views'] += int(views) if views else 0
+            results[video_id]['total_traffic_views'] += int(views) if views else 0
         
         conn.close()
         return results

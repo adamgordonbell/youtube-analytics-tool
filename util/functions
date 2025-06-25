@@ -66,7 +66,31 @@ echo "YouTube Analytics utility functions loaded"
 ,search-90() {
     # Analyze YouTube search performance for first 90 days
     ,setup-venv
-    python main.py --first-90-days-search "${@}"
+    python main.py --first-90-days-traffic --traffic-source-90 "YouTube search" "${@}"
+}
+
+,browse-90() {
+    # Analyze Browse features performance for first 90 days
+    ,setup-venv
+    python main.py --first-90-days-traffic --traffic-source-90 "Browse features" "${@}"
+}
+
+,external-90() {
+    # Analyze External traffic performance for first 90 days
+    ,setup-venv
+    python main.py --first-90-days-traffic --traffic-source-90 "External" "${@}"
+}
+
+,channel-90() {
+    # Analyze Channel pages traffic performance for first 90 days
+    ,setup-venv
+    python main.py --first-90-days-traffic --traffic-source-90 "Channel pages" "${@}"
+}
+
+,suggested-90() {
+    # Analyze Suggested videos performance for first 90 days
+    ,setup-venv
+    python main.py --first-90-days-traffic --traffic-source-90 "Suggested videos" "${@}"
 }
 
 ,search-180() {
@@ -105,6 +129,10 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,sync recent         - Sync recent videos"
     echo "  ,first-week SOURCE   - Analyze first week performance by traffic source"
     echo "  ,search-90           - Analyze YouTube search performance for first 90 days"
+    echo "  ,browse-90           - Analyze Browse features performance for first 90 days"
+    echo "  ,external-90         - Analyze External traffic performance for first 90 days"
+    echo "  ,channel-90          - Analyze Channel pages traffic performance for first 90 days"
+    echo "  ,suggested-90        - Analyze Suggested videos performance for first 90 days"
     echo "  ,search-180          - Analyze YouTube search performance for first 180 days"
     echo "  ,traffic VIDEO_ID DATE - Show traffic breakdown (YouTube Studio style)"
     echo ""

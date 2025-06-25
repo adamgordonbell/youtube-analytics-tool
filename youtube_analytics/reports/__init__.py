@@ -5,8 +5,8 @@ from .organic_views import OrganicViewsReport
 from .search_traffic import SearchTrafficReport
 from .first_week import FirstWeekReport
 from .traffic_breakdown import TrafficBreakdownReport
-from .first_90_days_search import First90DaysSearchReport
+from .first_90_days_traffic import First90DaysTrafficReport
 from .first_180_days_search import First180DaysSearchReport
 from .shorts_detection import ShortsDetectionReport
 
-__all__ = ["BaseReport", "OrganicViewsReport", "SearchTrafficReport", "FirstWeekReport", "TrafficBreakdownReport", "First90DaysSearchReport", "First180DaysSearchReport", "ShortsDetectionReport"]
+__all__ = ["BaseReport", "OrganicViewsReport", "SearchTrafficReport", "FirstWeekReport", "TrafficBreakdownReport", "First90DaysTrafficReport", "First180DaysSearchReport", "ShortsDetectionReport"]
