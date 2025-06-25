@@ -47,12 +47,27 @@ class BaseReport(ABC):
         pass
     
     def ensure_data_available(self, start_date: date, end_date: date, video_count: Optional[int] = None) -> List[str]:
-        """Ensure we have data for the required videos and date range"""
+        """Ensure we have data for the required videos and date range with quota fallback"""
         if video_count is None:
             video_count = self.get_required_video_count()
         
-        # Get video IDs from API for the period
-        video_ids = self.fetcher.get_recent_videos_from_api(video_count * 2, (end_date - start_date).days)
+        # Try to get video IDs from API for the period
+        try:
+            video_ids = self.fetcher.get_recent_videos_from_api(video_count * 2, (end_date - start_date).days)
+            if not video_ids:
+                self.console.print("[yellow]No videos found via API, falling back to database videos[/yellow]")
+                db_videos = self.db.get_recent_videos(video_count * 2)
+                video_ids = db_videos[:video_count] if db_videos else []
+        except Exception as e:
+            if self.is_quota_exceeded_error(e):
+                self.console.print("[yellow]API quota exceeded. Using recent videos from database instead.[/yellow]")
+                db_videos = self.db.get_recent_videos(video_count * 2)
+                video_ids = db_videos[:video_count] if db_videos else []
+            else:
+                self.console.print(f"[red]Error fetching videos from API: {e}[/red]")
+                self.console.print("[yellow]Falling back to database videos[/yellow]")
+                db_videos = self.db.get_recent_videos(video_count * 2)
+                video_ids = db_videos[:video_count] if db_videos else []
         
         if not video_ids:
             return []
@@ -60,8 +75,17 @@ class BaseReport(ABC):
         # Take the top videos we need
         video_ids = video_ids[:video_count]
         
-        # Ensure we have data for these videos
-        successful_videos = self.fetcher.ensure_videos_data(video_ids, start_date, end_date)
+        # Ensure we have data for these videos (quota-aware)
+        try:
+            successful_videos = self.fetcher.ensure_videos_data(video_ids, start_date, end_date)
+        except Exception as e:
+            if self.is_quota_exceeded_error(e):
+                self.console.print("[yellow]API quota exceeded during data fetching. Using existing data only.[/yellow]")
+                # Return videos that exist in database
+                successful_videos = [v for v in video_ids if v in self.db.get_all_video_ids()]
+            else:
+                self.console.print(f"[red]Error ensuring video data: {e}[/red]")
+                successful_videos = [v for v in video_ids if v in self.db.get_all_video_ids()]
         
         return successful_videos
     
@@ -149,38 +173,89 @@ class BaseReport(ABC):
         """Format number with thousands separator"""
         return f"{number:,}"
     
+    def is_quota_exceeded_error(self, error) -> bool:
+        """Check if an error is due to quota being exceeded"""
+        # Convert error to string to check content
+        error_str = str(error).lower()
+        
+        # Check for quota exceeded in error message
+        if 'quota' in error_str and 'exceeded' in error_str:
+            return True
+            
+        # Check for specific HTTP 403 quota errors
+        if hasattr(error, 'resp') and hasattr(error, 'content'):
+            if error.resp.status == 403:
+                error_content = str(error.content) if error.content else ""
+                return 'quota' in error_content.lower() and 'exceeded' in error_content.lower()
+                
+        return False
+    
     def ensure_comprehensive_data_available(self, days: int) -> List[str]:
-        """Generic backfill for N days after publication"""
+        """Generic backfill for N days after publication with quota fallback"""
         from datetime import timedelta, date
         
-        # Get ALL videos ever published (not just recent ones)
-        video_ids = self.fetcher.get_all_published_videos()
-        
-        if not video_ids:
-            return []
+        # Try to get ALL videos ever published (not just recent ones)
+        try:
+            video_ids = self.fetcher.get_all_published_videos()
+            if not video_ids:
+                self.console.print("[yellow]No new videos discovered, falling back to existing database videos[/yellow]")
+                return self.db.get_all_video_ids()
+        except Exception as e:
+            if self.is_quota_exceeded_error(e):
+                self.console.print("[yellow]API quota exceeded. Using existing videos from database instead of discovering new ones.[/yellow]")
+                return self.db.get_all_video_ids()
+            else:
+                self.console.print(f"[red]Error discovering videos: {e}[/red]")
+                self.console.print("[yellow]Falling back to existing database videos[/yellow]")
+                return self.db.get_all_video_ids()
         
         self.console.print(f"[dim]Found {len(video_ids)} total videos. Backfilling {days}-day historical data...[/dim]")
         
-        # Backfill all historical data for all videos
+        # Backfill all historical data for all videos (quota-aware)
         # This will ensure we have complete N-day data for every video
         successful_videos = []
+        quota_exceeded = False
+        
         for i, video_id in enumerate(video_ids):
             if i % 10 == 0:  # Progress indicator
                 self.console.print(f"[dim]Processing video {i+1}/{len(video_ids)}...[/dim]")
             
             # Get video info to find publish date
             video_info = self.db.get_video_info(video_id)
-            if not video_info:
-                video_info = self.fetcher.fetch_video_info(video_id)
-                if video_info:
-                    self.db.store_video_info(video_info)
+            if not video_info and not quota_exceeded:
+                try:
+                    video_info = self.fetcher.fetch_video_info(video_id)
+                    if video_info:
+                        self.db.store_video_info(video_info)
+                except Exception as e:
+                    if self.is_quota_exceeded_error(e):
+                        self.console.print("[yellow]API quota exceeded during video info fetching. Continuing with database-only analysis.[/yellow]")
+                        quota_exceeded = True
+                        # Still add video to successful list if we have basic info
+                        if video_id in self.db.get_all_video_ids():
+                            successful_videos.append(video_id)
+                        continue
             
             if video_info:
                 # Ensure we have full N days of data after publish date (but not beyond today)
                 end_date = video_info.published_date + timedelta(days=days-1)
                 actual_end = min(end_date, date.today())  # Don't fetch future data
-                if self.fetcher.ensure_video_data(video_id, video_info.published_date, actual_end):
-                    successful_videos.append(video_id)
+                
+                try:
+                    if not quota_exceeded and self.fetcher.ensure_video_data(video_id, video_info.published_date, actual_end):
+                        successful_videos.append(video_id)
+                    elif quota_exceeded:
+                        # Just add to successful list if we have the video in database
+                        successful_videos.append(video_id)
+                except Exception as e:
+                    if self.is_quota_exceeded_error(e):
+                        if not quota_exceeded:
+                            self.console.print("[yellow]API quota exceeded during data fetching. Continuing with existing data.[/yellow]")
+                            quota_exceeded = True
+                        successful_videos.append(video_id)  # Still include in analysis
+            elif video_id in self.db.get_all_video_ids():
+                # Video exists in database even without detailed info
+                successful_videos.append(video_id)
         
         self.console.print(f"[green]Successfully backfilled data for {len(successful_videos)} videos.[/green]")
         return successful_videos

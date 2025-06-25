@@ -19,8 +19,7 @@ echo "YouTube Analytics utility functions loaded"
 
 ,organic() {
     # Show organic traffic performance for first 30 days across all videos
-    ,setup-venv
-    python main.py --first-n-days --n-days 30 --traffic-source "organic" "$@"
+    ,30-day-organic "$@"
 }
 
 ,search() {
@@ -49,19 +48,7 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --sync "$video_id" "${@:2}"
 }
 
-,first-week() {
-    # Analyze first week performance by traffic source
-    local traffic_source="$1"
-    if [ -z "$traffic_source" ]; then
-        echo "Error: Please provide a traffic source" >&2
-        echo "Usage: ,first-week \"TRAFFIC_SOURCE\"" >&2
-        echo "Common sources: \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\"" >&2
-        echo "All sources: \"Suggested videos\", \"Direct or unknown\", \"Other YouTube features\", \"Playlists\", \"Notifications\"" >&2
-        return 1
-    fi
-    ,setup-venv
-    python main.py --first-week --traffic-source "$traffic_source" "${@:2}"
-}
+
 
 ,search-90() {
     # Analyze YouTube search performance for first 90 days
@@ -111,6 +98,13 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --first-180-days-traffic --traffic-source-180 "YouTube search" "${@}"
 }
 
+
+,suggested-180() {
+    # Analyze Suggested videos performance for first 90 days
+    ,setup-venv
+    python main.py --first-180-days-traffic --traffic-source-180 "Suggested videos" "${@}"
+}
+
 ,organic-180() {
     # Analyze organic (non-paid) traffic performance for first 180 days
     ,setup-venv
@@ -127,6 +121,24 @@ echo "YouTube Analytics utility functions loaded"
     # Analyze Other traffic performance for first 7 days across all videos
     ,setup-venv
     python main.py --first-n-days --n-days 7 --traffic-source "other" "${@}"
+}
+
+,7-day-search() {
+    # Analyze YouTube search performance for first 7 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 7 --traffic-source "YouTube search" "${@}"
+}
+
+,7-day-external() {
+    # Analyze External traffic performance for first 7 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 7 --traffic-source "External" "${@}"
+}
+
+,7-day-channel() {
+    # Analyze Channel pages traffic performance for first 7 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 7 --traffic-source "Channel pages" "${@}"
 }
 
 ,30-day-organic() {
@@ -161,37 +173,42 @@ echo "YouTube Analytics utility functions loaded"
     echo "Setup:"
     echo "  ,setup-venv          - Create/activate virtual environment"
     echo ""
-    echo "Reports:"
+    echo "Quick Reports:"
     echo "  ,organic             - Show organic traffic (30-day analysis)"
     echo "  ,search              - Show YouTube search traffic analysis"
     echo "  ,all                 - Run all reports"
     echo ""
-    echo "Database:"
+    echo "First N Days Analysis (by traffic source):"
+    echo "  ,7-day-browse        - Browse features performance for first 7 days"
+    echo "  ,7-day-search        - YouTube search performance for first 7 days"
+    echo "  ,7-day-external      - External traffic performance for first 7 days"
+    echo "  ,7-day-channel       - Channel pages performance for first 7 days"
+    echo "  ,7-day-other         - Other traffic performance for first 7 days"
+    echo "  ,30-day-organic      - Organic traffic performance for first 30 days"
+    echo "  ,30-day-browse       - Browse features performance for first 30 days"
+    echo ""
+    echo "Extended Period Analysis:"
+    echo "  ,search-90           - YouTube search performance for first 90 days"
+    echo "  ,browse-90           - Browse features performance for first 90 days"
+    echo "  ,external-90         - External traffic performance for first 90 days"
+    echo "  ,channel-90          - Channel pages performance for first 90 days"
+    echo "  ,suggested-90        - Suggested videos performance for first 90 days"
+    echo "  ,all-90              - ALL traffic sources performance for first 90 days"
+    echo "  ,organic-90          - Organic traffic performance for first 90 days"
+    echo "  ,search-180          - YouTube search performance for first 180 days"
+    echo "  ,organic-180         - Organic traffic performance for first 180 days"
+    echo ""
+    echo "Database & Utilities:"
     echo "  ,sync VIDEO_ID       - Sync specific video data"
     echo "  ,sync recent         - Sync recent videos"
-    echo "  ,first-week SOURCE   - Analyze first week performance by traffic source"
-    echo "  ,search-90           - Analyze YouTube search performance for first 90 days"
-    echo "  ,browse-90           - Analyze Browse features performance for first 90 days"
-    echo "  ,external-90         - Analyze External traffic performance for first 90 days"
-    echo "  ,channel-90          - Analyze Channel pages traffic performance for first 90 days"
-    echo "  ,suggested-90        - Analyze Suggested videos performance for first 90 days"
-    echo "  ,all-90              - Analyze ALL traffic sources performance for first 90 days"
-    echo "  ,organic-90          - Analyze organic (non-paid) traffic performance for first 90 days"
-    echo "  ,search-180          - Analyze YouTube search performance for first 180 days"
-    echo "  ,organic-180         - Analyze organic (non-paid) traffic performance for first 180 days"
-    echo "  ,7-day-browse        - Analyze Browse features performance for first 7 days"
-    echo "  ,7-day-other         - Analyze Other traffic performance for first 7 days"
-    echo "  ,30-day-organic      - Analyze organic traffic performance for first 30 days"
-    echo "  ,30-day-browse       - Analyze Browse features performance for first 30 days"
     echo "  ,traffic VIDEO_ID DATE - Show traffic breakdown (YouTube Studio style)"
     echo ""
     echo "Examples:"
-    echo "  ,organic"
-    echo "  ,sync recent"
-    echo "  ,sync Q8tw6YTD3ac"
-    echo "  ,first-week \"YouTube search\""
-    echo "  ,first-week \"Browse features\""
-    echo "  ,traffic AUCt28gVR6Y 2025-06-19"
+    echo "  ,7-day-browse --max 10    # Top 10 videos by 7-day browse performance"
+    echo "  ,30-day-organic --max 15  # Top 15 videos by 30-day organic performance"
+    echo "  ,organic-90 --max 20      # Top 20 videos by 90-day organic performance"
+    echo "  ,sync recent              # Sync recent videos"
+    echo "  ,traffic AUCt28gVR6Y 2025-06-19  # Traffic breakdown for specific video/date"
     echo ""
     echo "Common Traffic Sources:"
     echo "  \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\""

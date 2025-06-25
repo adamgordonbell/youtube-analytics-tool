@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase, DataFetcher
-from youtube_analytics.reports import SearchTrafficReport, FirstWeekReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport
+from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
 console = Console()
@@ -35,7 +35,6 @@ def show_welcome():
 @click.option("--days", default=28, help="Number of recent days (default mode)")
 
 @click.option("--search", is_flag=True, help="Show only search traffic report")  
-@click.option("--first-week", is_flag=True, help="Show first week performance comparison")
 @click.option("--first-n-days", is_flag=True, help="Show first N days performance comparison")
 @click.option("--n-days", default=7, help="Number of days for first-n-days analysis (default: 7)")
 @click.option("--first-90-days-traffic", is_flag=True, help="Show first 90 days traffic performance")
@@ -44,20 +43,20 @@ def show_welcome():
 @click.option("--traffic-source-180", default='YouTube search', help="Traffic source for 180-day analysis")
 @click.option("--shorts", is_flag=True, help="Show Shorts detection report")
 @click.option("--traffic-source", default=TrafficSources.BROWSE_FEATURES, 
-              help=f"Traffic source for first-week/first-n-days analysis ({', '.join(TrafficSources.first_week_options())})")
+              help=f"Traffic source for first-n-days analysis ({', '.join(TrafficSources.first_week_options())})")
 @click.option("--traffic-breakdown", help="Show traffic breakdown for specific video and date (format: VIDEO_ID,YYYY-MM-DD)")
 @click.option("--sync", help="Sync video data (provide video ID or 'recent' for recent videos)")
 @click.option("--complete-history", is_flag=True, help="When syncing, fetch complete history from publish date to today")
 @click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_week, first_n_days, n_days, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
+def main(start, end, max_results, days, search, first_n_days, n_days, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
     
     Default: Shows comprehensive analytics from last 28 days
     Custom range: Use --start and --end dates
-    Report selection: Use --search, --first-week, or --first-n-days for specific reports
+    Report selection: Use --search or --first-n-days for specific reports
     
     Examples:
       python main.py                           # All reports, last 28 days
@@ -65,7 +64,7 @@ def main(start, end, max_results, days, search, first_week, first_n_days, n_days
       python main.py --start 2024-01-01 --end 2024-01-31  # Custom date range
       python main.py --sync recent             # Sync recent videos
       python main.py --backfill-content-types # Update Short/Long format for videos
-      python main.py --first-week --traffic-source YT_SEARCH  # First week search performance
+      python main.py --first-n-days --n-days 7 --traffic-source "YouTube search"  # First week search performance
       python main.py --first-n-days --n-days 30 --traffic-source organic  # First 30 days organic performance
       python main.py --shorts                  # Show which videos are Shorts
     """
@@ -141,7 +140,7 @@ def main(start, end, max_results, days, search, first_week, first_n_days, n_days
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([search, first_week, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts]):
+    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
@@ -150,15 +149,6 @@ def main(start, end, max_results, days, search, first_week, first_n_days, n_days
     if show_all or search:
         report = SearchTrafficReport(db, fetcher)
         if report.run_report(start_date, end_date, max_results):
-            success_count += 1
-    
-    if first_week:
-        # First week report needs recent videos (not filtered by date range)
-        recent_end = date.today()
-        recent_start = recent_end - timedelta(days=90)  # Look back further for recent videos
-        
-        report = FirstWeekReport(db, fetcher)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source):
             success_count += 1
     
     if first_n_days:
