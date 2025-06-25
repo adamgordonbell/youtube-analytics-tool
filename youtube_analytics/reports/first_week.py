@@ -15,7 +15,7 @@ class FirstWeekReport(BaseReport):
         return "📊 FIRST WEEK PERFORMANCE COMPARISON"
     
     def get_required_video_count(self) -> int:
-        return 10  # Compare recent videos
+        return 40  # Look at more videos to find top performers
     
     def prepare_data(self, video_metrics: List[VideoMetrics], traffic_source: str = TrafficSources.BROWSE_FEATURES, **kwargs) -> List[Dict[str, Any]]:
         """Prepare first week performance data with daily breakdown"""
@@ -99,14 +99,14 @@ class FirstWeekReport(BaseReport):
         if video_count is None:
             video_count = self.get_required_video_count()
         
-        # Get recent video IDs (we don't need the date range for this)
-        video_ids = self.fetcher.get_recent_videos_from_api(video_count * 2, 90)  # Look back 90 days for videos
+        # Get 40 most recently published videos (not by performance)
+        video_ids = self.fetcher.get_recent_published_videos(40)
         
         if not video_ids:
             return []
         
-        # Take the top videos we need
-        video_ids = video_ids[:video_count]
+        # Take all 40 videos for analysis
+        video_ids = video_ids[:40]
         
         # For each video, only ensure we have data for its first 7 days
         successful_videos = []
@@ -134,7 +134,7 @@ class FirstWeekReport(BaseReport):
         try:
             # Custom data fetching for first week report
             self.console.print(f"[dim]Ensuring data is available for {self.get_report_title()}...[/dim]")
-            video_ids = self.ensure_data_available(start_date, end_date, max_results * 2)
+            video_ids = self.ensure_data_available(start_date, end_date, 40)
             
             if not video_ids:
                 self.console.print(f"[yellow]No videos found for {self.get_report_title()}[/yellow]")

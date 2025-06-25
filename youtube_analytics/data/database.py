@@ -33,6 +33,20 @@ class AnalyticsDatabase:
             )
         ''')
         
+        # Add duration column if it doesn't exist (migration)
+        try:
+            cursor.execute('ALTER TABLE videos ADD COLUMN duration_seconds INTEGER')
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
+        
+        # Add is_short_format column if it doesn't exist (migration)
+        try:
+            cursor.execute('ALTER TABLE videos ADD COLUMN is_short_format BOOLEAN')
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
+        
         # Daily metrics table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS daily_metrics (
@@ -64,9 +78,9 @@ class AnalyticsDatabase:
         
         cursor.execute('''
             INSERT OR REPLACE INTO videos 
-            (video_id, title, published_date, channel_id, updated_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ''', (video.video_id, video.title, video.published_date, video.channel_id))
+            (video_id, title, published_date, channel_id, duration_seconds, is_short_format, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (video.video_id, video.title, video.published_date, video.channel_id, video.duration_seconds, video.is_short_format))
         
         conn.commit()
         conn.close()
@@ -90,20 +104,28 @@ class AnalyticsDatabase:
         conn.commit()
         conn.close()
     
+    def clear_video_metrics(self, video_id: str):
+        """Clear all daily metrics for a video (for clean backfill)"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM daily_metrics WHERE video_id = ?', (video_id,))
+        conn.commit()
+        conn.close()
+    
     def get_video_info(self, video_id: str) -> Optional[VideoInfo]:
         """Get video information from database"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute('SELECT video_id, title, published_date, channel_id FROM videos WHERE video_id = ?', 
+        cursor.execute('SELECT video_id, title, published_date, channel_id, duration_seconds, is_short_format FROM videos WHERE video_id = ?', 
                       (video_id,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            video_id, title, published_date_str, channel_id = result
+            video_id, title, published_date_str, channel_id, duration_seconds, is_short_format = result
             published_date = datetime.strptime(published_date_str, '%Y-%m-%d').date()
-            return VideoInfo(video_id, title, published_date, channel_id)
+            return VideoInfo(video_id, title, published_date, channel_id, duration_seconds, is_short_format)
         return None
     
     def get_videos_needing_data(self, video_ids: List[str], start_date: date, end_date: date) -> Set[str]:
@@ -154,6 +176,7 @@ class AnalyticsDatabase:
                 v.title,
                 v.published_date,
                 v.channel_id,
+                v.duration_seconds,
                 COALESCE(SUM(dm.views), 0) as total_views,
                 COALESCE(SUM(CASE WHEN dm.traffic_source != 'ADVERTISING' THEN dm.views ELSE 0 END), 0) as organic_views,
                 COALESCE(SUM(CASE WHEN dm.traffic_source = 'YT_SEARCH' THEN dm.views ELSE 0 END), 0) as search_views
@@ -161,7 +184,7 @@ class AnalyticsDatabase:
             LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id 
                 AND dm.date BETWEEN ? AND ?
             WHERE v.video_id IN ({placeholders})
-            GROUP BY v.video_id, v.title, v.published_date, v.channel_id
+            GROUP BY v.video_id, v.title, v.published_date, v.channel_id, v.duration_seconds
         '''
         
         params = [start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')] + video_ids
@@ -169,10 +192,10 @@ class AnalyticsDatabase:
         
         results = []
         for row in cursor.fetchall():
-            video_id, title, published_date_str, channel_id, total_views, organic_views, search_views = row
+            video_id, title, published_date_str, channel_id, duration_seconds, total_views, organic_views, search_views = row
             published_date = datetime.strptime(published_date_str, '%Y-%m-%d').date()
             
-            video_info = VideoInfo(video_id, title, published_date, channel_id)
+            video_info = VideoInfo(video_id, title, published_date, channel_id, duration_seconds)
             metrics = VideoMetrics(
                 video_info=video_info,
                 total_views=int(total_views),
@@ -340,3 +363,52 @@ class AnalyticsDatabase:
             missing_ranges.append((range_start, end_date))
         
         return missing_ranges
+    
+    def get_first_90_days_search(self, video_ids: List[str]) -> Dict[str, Dict]:
+        """Get YouTube search views for first 90 days of each video, broken down by weeks"""
+        if not video_ids:
+            return {}
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(video_ids))
+        query = f'''
+            SELECT 
+                v.video_id,
+                v.title, 
+                v.published_date,
+                dm.days_since_published,
+                COALESCE(dm.views, 0) as views
+            FROM videos v
+            LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+            WHERE v.video_id IN ({placeholders})
+            AND dm.days_since_published BETWEEN 0 AND 89
+            AND dm.traffic_source = 'YouTube search'
+            ORDER BY v.video_id, dm.days_since_published
+        '''
+        
+        params = video_ids
+        cursor.execute(query, params)
+        
+        results = {}
+        for row in cursor.fetchall():
+            video_id, title, published_date, days_since, views = row
+            if video_id not in results:
+                results[video_id] = {
+                    'title': title,
+                    'published_date': published_date,
+                    'total_search_views': 0,
+                    'week_breakdowns': {}  # week_number -> views
+                }
+            
+            # Calculate which week this day falls into (0-12 for 90 days)
+            week_number = days_since // 7
+            if week_number not in results[video_id]['week_breakdowns']:
+                results[video_id]['week_breakdowns'][week_number] = 0
+            
+            results[video_id]['week_breakdowns'][week_number] += int(views) if views else 0
+            results[video_id]['total_search_views'] += int(views) if views else 0
+        
+        conn.close()
+        return results

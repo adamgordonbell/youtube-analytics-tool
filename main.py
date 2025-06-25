@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase, DataFetcher
-from youtube_analytics.reports import OrganicViewsReport, SearchTrafficReport, FirstWeekReport, TrafficBreakdownReport
+from youtube_analytics.reports import OrganicViewsReport, SearchTrafficReport, FirstWeekReport, TrafficBreakdownReport, First90DaysSearchReport, ShortsDetectionReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
 console = Console()
@@ -36,12 +36,16 @@ def show_welcome():
 @click.option("--organic", is_flag=True, help="Show only organic views report")
 @click.option("--search", is_flag=True, help="Show only search traffic report")  
 @click.option("--first-week", is_flag=True, help="Show first week performance comparison")
+@click.option("--first-90-days-search", is_flag=True, help="Show first 90 days search performance")
+@click.option("--shorts", is_flag=True, help="Show Shorts detection report")
 @click.option("--traffic-source", default=TrafficSources.BROWSE_FEATURES, 
               help=f"Traffic source for first-week analysis ({', '.join(TrafficSources.first_week_options())})")
 @click.option("--traffic-breakdown", help="Show traffic breakdown for specific video and date (format: VIDEO_ID,YYYY-MM-DD)")
 @click.option("--sync", help="Sync video data (provide video ID or 'recent' for recent videos)")
+@click.option("--complete-history", is_flag=True, help="When syncing, fetch complete history from publish date to today")
+@click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, organic, search, first_week, traffic_source, traffic_breakdown, sync, show_all):
+def main(start, end, max_results, days, organic, search, first_week, first_90_days_search, shorts, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
@@ -55,7 +59,9 @@ def main(start, end, max_results, days, organic, search, first_week, traffic_sou
       python main.py --organic --max 15       # Top 15 organic videos
       python main.py --start 2024-01-01 --end 2024-01-31  # Custom date range
       python main.py --sync recent             # Sync recent videos
+      python main.py --backfill-content-types # Update Short/Long format for videos
       python main.py --first-week --traffic-source YT_SEARCH  # First week search performance
+      python main.py --shorts                  # Show which videos are Shorts
     """
     
     show_welcome()
@@ -84,19 +90,40 @@ def main(start, end, max_results, days, organic, search, first_week, traffic_sou
     # Handle sync operations
     if sync:
         if sync.lower() == 'recent':
-            console.print("[blue]Syncing recent videos...[/blue]")
-            successful_videos = fetcher.sync_recent_videos(max_results * 2, days)
-            console.print(f"[green]✅ Successfully synced {len(successful_videos)} videos[/green]")
+            if complete_history:
+                console.print(f"[blue]Backfilling complete history for {max_results} recent videos...[/blue]")
+                successful_videos = fetcher.backfill_recent_videos_complete_history(max_results)
+                console.print(f"[green]✅ Successfully backfilled {len(successful_videos)} videos with complete history[/green]")
+            else:
+                console.print("[blue]Syncing recent videos...[/blue]")
+                successful_videos = fetcher.sync_recent_videos(max_results * 2, days)
+                console.print(f"[green]✅ Successfully synced {len(successful_videos)} videos[/green]")
         else:
             # Sync specific video
-            console.print(f"[blue]Syncing video {sync}...[/blue]")
-            end_date = date.today()
-            start_date = end_date - timedelta(days=60)
-            
-            if fetcher.ensure_video_data(sync, start_date, end_date):
-                console.print(f"[green]✅ Successfully synced video {sync}[/green]")
+            if complete_history:
+                console.print(f"[blue]Backfilling complete history for video {sync}...[/blue]")
+                if fetcher.backfill_video_complete_history(sync):
+                    console.print(f"[green]✅ Successfully backfilled video {sync} with complete history[/green]")
+                else:
+                    console.print(f"[red]❌ Failed to backfill video {sync}[/red]")
             else:
-                console.print(f"[red]❌ Failed to sync video {sync}[/red]")
+                console.print(f"[blue]Syncing video {sync}...[/blue]")
+                end_date = date.today()
+                start_date = end_date - timedelta(days=60)
+                
+                if fetcher.ensure_video_data(sync, start_date, end_date):
+                    console.print(f"[green]✅ Successfully synced video {sync}[/green]")
+                else:
+                    console.print(f"[red]❌ Failed to sync video {sync}[/red]")
+        return
+    
+    # Handle content type backfill
+    if backfill_content_types:
+        console.print(f"[blue]Backfilling content types for up to {max_results} videos...[/blue]")
+        if fetcher.backfill_video_content_types(max_results):
+            console.print("[green]✅ Content type backfill completed[/green]")
+        else:
+            console.print("[red]❌ Content type backfill failed[/red]")
         return
     
     # Determine date range
@@ -108,7 +135,7 @@ def main(start, end, max_results, days, organic, search, first_week, traffic_sou
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([organic, search, first_week]):
+    if not any([organic, search, first_week, first_90_days_search, shorts]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
@@ -131,6 +158,21 @@ def main(start, end, max_results, days, organic, search, first_week, traffic_sou
         
         report = FirstWeekReport(db, fetcher)
         if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source):
+            success_count += 1
+    
+    if first_90_days_search:
+        # 90-day search report analyzes recent videos
+        recent_end = date.today()
+        recent_start = recent_end - timedelta(days=180)  # Look back further for recent videos
+        
+        report = First90DaysSearchReport(db, fetcher)
+        if report.run_report(recent_start, recent_end, max_results):
+            success_count += 1
+    
+    if shorts:
+        # Shorts detection report
+        report = ShortsDetectionReport(db, fetcher)
+        if report.run_report(start_date, end_date, max_results):
             success_count += 1
     
     # Show completion message

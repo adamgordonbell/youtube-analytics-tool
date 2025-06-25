@@ -10,6 +10,26 @@ class VideoInfo:
     title: str
     published_date: date
     channel_id: str
+    duration_seconds: Optional[int] = None
+    is_short_format: Optional[bool] = None  # True if uploaded as Short, False if regular video
+    
+    @property
+    def is_short(self) -> bool:
+        """Return True if video is a YouTube Short"""
+        # Use explicit Short format flag if available, fallback to heuristics
+        if self.is_short_format is not None:
+            return self.is_short_format
+        
+        # Fallback: Shorts are typically under 3 minutes and often vertical
+        # This is a best guess without direct API support
+        return self.duration_seconds is not None and self.duration_seconds <= 180
+    
+    @property
+    def format_type(self) -> str:
+        """Return 'Short' or 'Long' based on format"""
+        if self.is_short_format is None and self.duration_seconds is None:
+            return "Unknown"
+        return "Short" if self.is_short else "Long"
 
 @dataclass
 class DailyMetric:

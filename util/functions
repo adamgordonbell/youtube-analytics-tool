@@ -63,6 +63,12 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --first-week --traffic-source "$traffic_source" "${@:2}"
 }
 
+,search-90() {
+    # Analyze YouTube search performance for first 90 days
+    ,setup-venv
+    python main.py --first-90-days-search "${@}"
+}
+
 ,traffic() {
     # Show traffic breakdown for specific video and date (YouTube Studio style)
     local video_id="$1"
