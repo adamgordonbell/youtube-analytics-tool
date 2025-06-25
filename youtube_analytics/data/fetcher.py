@@ -184,14 +184,17 @@ class DataFetcher:
             if actual_start > range_end:
                 continue  # This range is before publication
             
-            # Skip fetching data that's more than 2 days old (should be final)
-            # Exception: Always fetch for first week analysis regardless of age
+            # Check if we already have any data for this video in this range
+            # Only skip old data if we're doing a refresh, not initial backfill
             today = datetime.now().date()
-            if range_end < today - timedelta(days=2):
-                # Check if this is within 7 days of publish date (first week analysis)
+            has_existing_data = self.db.has_daily_metrics_in_range(video_id, actual_start, range_end)
+            
+            if has_existing_data and range_end < today - timedelta(days=2):
+                # Data exists and is more than 2 days old - skip refetching (data should be stable)
+                # Exception: Always allow refetch for first week analysis regardless of age
                 days_from_publish = (range_end - video_info.published_date).days
                 if days_from_publish > 6:
-                    continue  # Data is too old to change, skip refetching
+                    continue  # Data exists and is too old to change, skip refetching
             
             print(f"Fetching data for {video_id} from {actual_start} to {range_end}")
             daily_metrics = self.fetch_daily_analytics(video_id, actual_start, range_end)

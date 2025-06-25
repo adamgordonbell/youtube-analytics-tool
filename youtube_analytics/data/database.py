@@ -267,12 +267,12 @@ class AnalyticsDatabase:
                     COALESCE(SUM(dm.views), 0) as total_views
                 FROM videos v
                 LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                    AND dm.days_since_published BETWEEN ? AND ?
                 WHERE v.video_id IN ({placeholders})
-                AND dm.days_since_published BETWEEN ? AND ?
                 GROUP BY v.video_id, v.title, v.published_date
                 ORDER BY total_views DESC
             '''
-            params = video_ids + [start_day, end_day]
+            params = [start_day, end_day] + video_ids
         elif traffic_source.lower() == 'organic':
             # Exclude advertising traffic
             query = f'''
@@ -283,13 +283,13 @@ class AnalyticsDatabase:
                     COALESCE(SUM(dm.views), 0) as total_views
                 FROM videos v
                 LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                    AND dm.days_since_published BETWEEN ? AND ?
+                    AND dm.traffic_source != 'Advertising'
                 WHERE v.video_id IN ({placeholders})
-                AND dm.days_since_published BETWEEN ? AND ?
-                AND dm.traffic_source != 'Advertising'
                 GROUP BY v.video_id, v.title, v.published_date
                 ORDER BY total_views DESC
             '''
-            params = video_ids + [start_day, end_day]
+            params = [start_day, end_day] + video_ids
         else:
             # Single traffic source
             query = f'''
@@ -300,13 +300,13 @@ class AnalyticsDatabase:
                     COALESCE(SUM(dm.views), 0) as total_views
                 FROM videos v
                 LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                    AND dm.days_since_published BETWEEN ? AND ?
+                    AND dm.traffic_source = ?
                 WHERE v.video_id IN ({placeholders})
-                AND dm.days_since_published BETWEEN ? AND ?
-                AND dm.traffic_source = ?
                 GROUP BY v.video_id, v.title, v.published_date
                 ORDER BY total_views DESC
             '''
-            params = video_ids + [start_day, end_day, traffic_source]
+            params = [start_day, end_day, traffic_source] + video_ids
         
         cursor.execute(query, params)
         
@@ -332,6 +332,31 @@ class AnalyticsDatabase:
         conn.close()
         
         return video_ids
+    
+    def has_daily_metrics_in_range(self, video_id: str, start_date: date, end_date: date) -> bool:
+        """Check if we have any daily metrics data for a video in the given date range"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Convert dates to days since published
+        video_info = self.get_video_info(video_id)
+        if not video_info:
+            conn.close()
+            return False
+        
+        start_days = (start_date - video_info.published_date).days
+        end_days = (end_date - video_info.published_date).days
+        
+        cursor.execute('''
+            SELECT COUNT(*) FROM daily_metrics 
+            WHERE video_id = ? 
+            AND days_since_published BETWEEN ? AND ?
+        ''', (video_id, start_days, end_days))
+        
+        count = cursor.fetchone()[0]
+        conn.close()
+        
+        return count > 0
     
     def get_daily_views_for_spike_analysis(self, video_ids: List[str], traffic_source: str = "organic") -> Dict[str, Dict]:
         """Get daily views data for spike detection analysis"""

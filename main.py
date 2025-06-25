@@ -144,7 +144,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection]):
+    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection, video_ranking]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
