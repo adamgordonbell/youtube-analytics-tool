@@ -373,22 +373,40 @@ class AnalyticsDatabase:
         cursor = conn.cursor()
         
         placeholders = ','.join(['?'] * len(video_ids))
-        query = f'''
-            SELECT 
-                v.video_id,
-                v.title, 
-                v.published_date,
-                dm.days_since_published,
-                COALESCE(dm.views, 0) as views
-            FROM videos v
-            LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
-            WHERE v.video_id IN ({placeholders})
-            AND dm.days_since_published BETWEEN 0 AND 89
-            AND dm.traffic_source = ?
-            ORDER BY v.video_id, dm.days_since_published
-        '''
         
-        params = video_ids + [traffic_source]
+        # Handle 'all' traffic sources vs specific traffic source
+        if traffic_source.lower() == 'all':
+            query = f'''
+                SELECT 
+                    v.video_id,
+                    v.title, 
+                    v.published_date,
+                    dm.days_since_published,
+                    COALESCE(SUM(dm.views), 0) as views
+                FROM videos v
+                LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                WHERE v.video_id IN ({placeholders})
+                AND dm.days_since_published BETWEEN 0 AND 89
+                GROUP BY v.video_id, v.title, v.published_date, dm.days_since_published
+                ORDER BY v.video_id, dm.days_since_published
+            '''
+            params = video_ids
+        else:
+            query = f'''
+                SELECT 
+                    v.video_id,
+                    v.title, 
+                    v.published_date,
+                    dm.days_since_published,
+                    COALESCE(dm.views, 0) as views
+                FROM videos v
+                LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                WHERE v.video_id IN ({placeholders})
+                AND dm.days_since_published BETWEEN 0 AND 89
+                AND dm.traffic_source = ?
+                ORDER BY v.video_id, dm.days_since_published
+            '''
+            params = video_ids + [traffic_source]
         cursor.execute(query, params)
         
         results = {}
