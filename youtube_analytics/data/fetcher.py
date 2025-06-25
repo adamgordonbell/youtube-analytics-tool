@@ -282,10 +282,55 @@ class DataFetcher:
             return []
     
     def get_all_published_videos(self) -> List[str]:
-        """Get ALL published video IDs from database (no limit)"""
+        """Get ALL published video IDs from channel using API pagination"""
+        data_client = self.client_manager.get_data_client()
+        if not data_client:
+            return []
+        
         try:
-            # Get all videos from database ordered by publish date (most recent first)
-            return self.db.get_recent_videos(999999)  # Use very large limit to get all
+            # Get channel ID from an existing video or discover it
+            existing_video = self.db.get_recent_videos(1)
+            if existing_video:
+                video_info = self.db.get_video_info(existing_video[0])
+                if video_info:
+                    channel_id = video_info.channel_id
+                else:
+                    print("Could not get channel ID from database")
+                    return []
+            else:
+                print("No existing videos found to determine channel ID")
+                return []
+            
+            # Get ALL videos from channel using pagination
+            all_video_ids = []
+            next_page_token = None
+            
+            while True:
+                request = data_client.search().list(
+                    part="snippet",
+                    channelId=channel_id,
+                    order="date",
+                    type="video",  
+                    maxResults=50,  # API limit per request
+                    pageToken=next_page_token
+                )
+                response = request.execute()
+                
+                # Extract video IDs from this page
+                for item in response.get('items', []):
+                    video_id = item['id']['videoId']
+                    all_video_ids.append(video_id)
+                
+                # Check if there are more pages
+                next_page_token = response.get('nextPageToken')
+                if not next_page_token:
+                    break
+                
+                print(f"Discovered {len(all_video_ids)} videos so far...")
+                
+            print(f"Total videos discovered: {len(all_video_ids)}")
+            return all_video_ids
+            
         except Exception as e:
             print(f"Error getting all published videos: {e}")
             return []
