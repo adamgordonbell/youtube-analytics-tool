@@ -116,9 +116,11 @@ class First90DaysSearchReport(BaseReport):
                     self.db.store_video_info(video_info)
             
             if video_info:
-                # Ensure we have full 90 days of data after publish date
+                # Ensure we have full 90 days of data after publish date (but not beyond today)
+                from datetime import date
                 ninety_days_end = video_info.published_date + timedelta(days=89)
-                if self.fetcher.ensure_video_data(video_id, video_info.published_date, ninety_days_end):
+                actual_end = min(ninety_days_end, date.today())  # Don't fetch future data
+                if self.fetcher.ensure_video_data(video_id, video_info.published_date, actual_end):
                     successful_videos.append(video_id)
         
         self.console.print(f"[green]Successfully backfilled data for {len(successful_videos)} videos.[/green]")

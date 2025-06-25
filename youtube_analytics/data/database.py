@@ -412,3 +412,52 @@ class AnalyticsDatabase:
         
         conn.close()
         return results
+    
+    def get_first_180_days_search(self, video_ids: List[str]) -> Dict[str, Dict]:
+        """Get YouTube search views for first 180 days of each video, broken down by months"""
+        if not video_ids:
+            return {}
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(video_ids))
+        query = f'''
+            SELECT 
+                v.video_id,
+                v.title, 
+                v.published_date,
+                dm.days_since_published,
+                COALESCE(dm.views, 0) as views
+            FROM videos v
+            LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+            WHERE v.video_id IN ({placeholders})
+            AND dm.days_since_published BETWEEN 0 AND 179
+            AND dm.traffic_source = 'YouTube search'
+            ORDER BY v.video_id, dm.days_since_published
+        '''
+        
+        params = video_ids
+        cursor.execute(query, params)
+        
+        results = {}
+        for row in cursor.fetchall():
+            video_id, title, published_date, days_since, views = row
+            if video_id not in results:
+                results[video_id] = {
+                    'title': title,
+                    'published_date': published_date,
+                    'total_search_views': 0,
+                    'month_breakdowns': {}  # month_number -> views
+                }
+            
+            # Calculate which month this day falls into (0-5 for 180 days)
+            month_number = days_since // 30  # Approximate 30 days per month
+            if month_number not in results[video_id]['month_breakdowns']:
+                results[video_id]['month_breakdowns'][month_number] = 0
+            
+            results[video_id]['month_breakdowns'][month_number] += int(views) if views else 0
+            results[video_id]['total_search_views'] += int(views) if views else 0
+        
+        conn.close()
+        return results

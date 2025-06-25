@@ -69,6 +69,12 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --first-90-days-search "${@}"
 }
 
+,search-180() {
+    # Analyze YouTube search performance for first 180 days
+    ,setup-venv
+    python main.py --first-180-days-search "${@}"
+}
+
 ,traffic() {
     # Show traffic breakdown for specific video and date (YouTube Studio style)
     local video_id="$1"
@@ -98,6 +104,8 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,sync VIDEO_ID       - Sync specific video data"
     echo "  ,sync recent         - Sync recent videos"
     echo "  ,first-week SOURCE   - Analyze first week performance by traffic source"
+    echo "  ,search-90           - Analyze YouTube search performance for first 90 days"
+    echo "  ,search-180          - Analyze YouTube search performance for first 180 days"
     echo "  ,traffic VIDEO_ID DATE - Show traffic breakdown (YouTube Studio style)"
     echo ""
     echo "Examples:"
