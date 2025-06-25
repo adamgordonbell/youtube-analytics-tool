@@ -46,3 +46,8 @@ class TrafficSources:
     def common(cls):
         """Most commonly used traffic sources"""
         return [cls.YOUTUBE_SEARCH, cls.BROWSE_FEATURES, cls.CHANNEL_PAGES, cls.ADVERTISING, cls.EXTERNAL]
+    
+    @classmethod
+    def first_week_options(cls):
+        """Options for first week report including all"""
+        return ["all"] + cls.common()

@@ -1,6 +1,7 @@
 """First week performance comparison report"""
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from datetime import date
 
 from .base_report import BaseReport
 from ..data import VideoMetrics
@@ -86,10 +87,80 @@ class FirstWeekReport(BaseReport):
     def get_report_title(self) -> str:
         # Override to include traffic source in title
         traffic_source = getattr(self, '_current_traffic_source', TrafficSources.BROWSE_FEATURES)
-        return f"📊 FIRST WEEK {traffic_source.upper()} PERFORMANCE COMPARISON"
+        if traffic_source.lower() == 'all':
+            return "📊 FIRST WEEK TOTAL PERFORMANCE COMPARISON"
+        else:
+            return f"📊 FIRST WEEK {traffic_source.upper()} PERFORMANCE COMPARISON"
     
+    def ensure_data_available(self, start_date: date, end_date: date, video_count: Optional[int] = None) -> List[str]:
+        """Override to only fetch first week data for each video"""
+        from datetime import timedelta
+        
+        if video_count is None:
+            video_count = self.get_required_video_count()
+        
+        # Get recent video IDs (we don't need the date range for this)
+        video_ids = self.fetcher.get_recent_videos_from_api(video_count * 2, 90)  # Look back 90 days for videos
+        
+        if not video_ids:
+            return []
+        
+        # Take the top videos we need
+        video_ids = video_ids[:video_count]
+        
+        # For each video, only ensure we have data for its first 7 days
+        successful_videos = []
+        for video_id in video_ids:
+            # Get video info to find publish date
+            video_info = self.db.get_video_info(video_id)
+            if not video_info:
+                video_info = self.fetcher.fetch_video_info(video_id)
+                if video_info:
+                    self.db.store_video_info(video_info)
+            
+            if video_info:
+                # Only fetch first 7 days after publish
+                first_week_end = video_info.published_date + timedelta(days=6)
+                if self.fetcher.ensure_video_data(video_id, video_info.published_date, first_week_end):
+                    successful_videos.append(video_id)
+        
+        return successful_videos
+
     def run_report(self, start_date, end_date, max_results=10, traffic_source=TrafficSources.BROWSE_FEATURES, **kwargs):
-        """Override to store traffic source for title"""
+        """Override to store traffic source for title and use custom data fetching"""
         self._current_traffic_source = traffic_source
         kwargs['traffic_source'] = traffic_source
-        return super().run_report(start_date, end_date, max_results, **kwargs)
+        
+        try:
+            # Custom data fetching for first week report
+            self.console.print(f"[dim]Ensuring data is available for {self.get_report_title()}...[/dim]")
+            video_ids = self.ensure_data_available(start_date, end_date, max_results * 2)
+            
+            if not video_ids:
+                self.console.print(f"[yellow]No videos found for {self.get_report_title()}[/yellow]")
+                return False
+            
+            # Get metrics from database (we don't use the date range here since we want all data)
+            video_metrics = []
+            for video_id in video_ids:
+                video_info = self.db.get_video_info(video_id)
+                if video_info:
+                    metrics = VideoMetrics(
+                        video_info=video_info,
+                        total_views=0,  # Not used in first week report
+                        organic_views=0,  # Not used in first week report
+                        search_views=0   # Not used in first week report
+                    )
+                    video_metrics.append(metrics)
+            
+            if not video_metrics:
+                self.console.print(f"[yellow]No metrics available for {self.get_report_title()}[/yellow]")
+                return False
+            
+            # Display report
+            self.display_report(video_metrics, start_date, end_date, max_results, **kwargs)
+            return True
+            
+        except Exception as e:
+            self.console.print(f"[red]Error running {self.get_report_title()}: {e}[/red]")
+            return False

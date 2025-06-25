@@ -37,7 +37,7 @@ def show_welcome():
 @click.option("--search", is_flag=True, help="Show only search traffic report")  
 @click.option("--first-week", is_flag=True, help="Show first week performance comparison")
 @click.option("--traffic-source", default=TrafficSources.BROWSE_FEATURES, 
-              help=f"Traffic source for first-week analysis ({', '.join(TrafficSources.common())})")
+              help=f"Traffic source for first-week analysis ({', '.join(TrafficSources.first_week_options())})")
 @click.option("--traffic-breakdown", help="Show traffic breakdown for specific video and date (format: VIDEO_ID,YYYY-MM-DD)")
 @click.option("--sync", help="Sync video data (provide video ID or 'recent' for recent videos)")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")

@@ -95,9 +95,14 @@ class BaseReport(ABC):
         """Display the formatted report"""
         # Header
         title = self.get_report_title()
-        subtitle = f"{start_date} to {end_date}"
-        self.console.print(Panel(f"[bold blue]{title}[/bold blue]\n[dim]{subtitle}[/dim]", 
-                                box=box.ROUNDED, style="blue"))
+        # Don't show date range for first week reports since they show recent videos
+        if "FIRST WEEK" in title:
+            self.console.print(Panel(f"[bold blue]{title}[/bold blue]", 
+                                    box=box.ROUNDED, style="blue"))
+        else:
+            subtitle = f"{start_date} to {end_date}"
+            self.console.print(Panel(f"[bold blue]{title}[/bold blue]\n[dim]{subtitle}[/dim]", 
+                                    box=box.ROUNDED, style="blue"))
         
         # Prepare data
         prepared_data = self.prepare_data(video_metrics, **kwargs)

@@ -138,6 +138,11 @@ class DataFetcher:
             if actual_start > range_end:
                 continue  # This range is before publication
             
+            # Skip fetching data that's more than 2 days old (should be final)
+            today = datetime.now().date()
+            if range_end < today - timedelta(days=2):
+                continue  # Data is too old to change, skip refetching
+            
             print(f"Fetching data for {video_id} from {actual_start} to {range_end}")
             daily_metrics = self.fetch_daily_analytics(video_id, actual_start, range_end)
             if daily_metrics:
