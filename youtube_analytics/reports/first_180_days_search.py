@@ -12,43 +12,51 @@ class First180DaysSearchReport(BaseReport):
     """Report showing YouTube search performance in first 180 days after publication"""
     
     def get_report_title(self) -> str:
-        return "🔍 FIRST 180 DAYS SEARCH PERFORMANCE"
+        # Override to include traffic source in title
+        traffic_source = getattr(self, '_current_traffic_source', 'YouTube search')
+        if traffic_source.lower() == 'all':
+            return "📊 FIRST 180 DAYS TOTAL TRAFFIC PERFORMANCE"
+        elif traffic_source.lower() == 'organic':
+            return "🌱 FIRST 180 DAYS ORGANIC TRAFFIC PERFORMANCE"
+        else:
+            return f"📊 FIRST 180 DAYS {traffic_source.upper()} PERFORMANCE"
     
     def get_required_video_count(self) -> int:
         return None  # Analyze ALL videos ever published
     
-    def prepare_data(self, video_metrics: List[VideoMetrics], **kwargs) -> List[Dict[str, Any]]:
-        """Prepare first 180 days search performance data"""
+    def prepare_data(self, video_metrics: List[VideoMetrics], traffic_source: str = 'YouTube search', **kwargs) -> List[Dict[str, Any]]:
+        """Prepare first 180 days traffic performance data"""
         # Get video IDs from metrics
         video_ids = [metrics.video_id for metrics in video_metrics]
         
-        # Get 180-day search breakdown from database
-        search_data = self.db.get_first_180_days_search(video_ids)
+        # Get 180-day traffic breakdown from database
+        traffic_data = self.db.get_first_180_days_traffic(video_ids, traffic_source)
         
         # Combine with video info
         results = []
         for metrics in video_metrics:
-            if metrics.video_id in search_data:
-                data = search_data[metrics.video_id]
+            if metrics.video_id in traffic_data:
+                data = traffic_data[metrics.video_id]
                 
                 result = {
                     'video_id': metrics.video_id,
                     'title': data['title'],
                     'published_date': data['published_date'],
                     'format_type': metrics.video_info.format_type,
-                    'total_180_day_search': data['total_search_views'],
-                    'month_1_search': data['month_breakdowns'].get(0, 0),
-                    'month_2_search': data['month_breakdowns'].get(1, 0),
-                    'month_3_search': data['month_breakdowns'].get(2, 0),
-                    'month_4_search': data['month_breakdowns'].get(3, 0),
-                    'month_5_search': data['month_breakdowns'].get(4, 0),
-                    'month_6_search': data['month_breakdowns'].get(5, 0)
+                    'total_180_day_traffic': data['total_traffic_views'],
+                    'month_1_traffic': data['month_breakdowns'].get(0, 0),
+                    'month_2_traffic': data['month_breakdowns'].get(1, 0),
+                    'month_3_traffic': data['month_breakdowns'].get(2, 0),
+                    'month_4_traffic': data['month_breakdowns'].get(3, 0),
+                    'month_5_traffic': data['month_breakdowns'].get(4, 0),
+                    'month_6_traffic': data['month_breakdowns'].get(5, 0),
+                    'traffic_source': traffic_source
                 }
                 
                 results.append(result)
         
-        # Sort by total 180-day search views descending
-        results.sort(key=lambda x: x['total_180_day_search'], reverse=True)
+        # Sort by total 180-day traffic views descending
+        results.sort(key=lambda x: x['total_180_day_traffic'], reverse=True)
         return results
     
     def get_table_columns(self) -> List[Dict[str, str]]:
@@ -80,56 +88,26 @@ class First180DaysSearchReport(BaseReport):
             title_with_link,
             published,
             row_data['format_type'],
-            self.format_number(row_data['month_1_search']),
-            self.format_number(row_data['month_2_search']),
-            self.format_number(row_data['month_3_search']),
-            self.format_number(row_data['month_4_search']),
-            self.format_number(row_data['month_5_search']),
-            self.format_number(row_data['month_6_search']),
-            self.format_number(row_data['total_180_day_search'])
+            self.format_number(row_data['month_1_traffic']),
+            self.format_number(row_data['month_2_traffic']),
+            self.format_number(row_data['month_3_traffic']),
+            self.format_number(row_data['month_4_traffic']),
+            self.format_number(row_data['month_5_traffic']),
+            self.format_number(row_data['month_6_traffic']),
+            self.format_number(row_data['total_180_day_traffic'])
         ]
     
     def ensure_data_available(self, start_date: date, end_date: date, video_count: Optional[int] = None) -> List[str]:
-        """Override - get ALL videos and backfill comprehensive historical data"""
-        from datetime import timedelta
-        
-        # Get ALL videos ever published (not just recent ones)
-        video_ids = self.fetcher.get_all_published_videos()
-        
-        if not video_ids:
-            return []
-        
-        self.console.print(f"[dim]Found {len(video_ids)} total videos. Backfilling comprehensive historical data...[/dim]")
-        
-        # Backfill all historical data for all videos
-        # This will ensure we have complete 180-day data for every video
-        successful_videos = []
-        for i, video_id in enumerate(video_ids):
-            if i % 10 == 0:  # Progress indicator
-                self.console.print(f"[dim]Processing video {i+1}/{len(video_ids)}...[/dim]")
-            
-            # Get video info to find publish date
-            video_info = self.db.get_video_info(video_id)
-            if not video_info:
-                video_info = self.fetcher.fetch_video_info(video_id)
-                if video_info:
-                    self.db.store_video_info(video_info)
-            
-            if video_info:
-                # Ensure we have full 180 days of data after publish date (but not beyond today)
-                from datetime import date
-                one_eighty_days_end = video_info.published_date + timedelta(days=179)
-                actual_end = min(one_eighty_days_end, date.today())  # Don't fetch future data
-                if self.fetcher.ensure_video_data(video_id, video_info.published_date, actual_end):
-                    successful_videos.append(video_id)
-        
-        self.console.print(f"[green]Successfully backfilled data for {len(successful_videos)} videos.[/green]")
-        return successful_videos
+        """Override - get ALL videos and backfill comprehensive 180-day historical data"""
+        return self.ensure_comprehensive_data_available(180)
 
-    def run_report(self, start_date, end_date, max_results=10, **kwargs):
-        """Override to use custom data fetching for 180-day search analysis"""
+    def run_report(self, start_date, end_date, max_results=10, traffic_source='YouTube search', **kwargs):
+        """Override to use custom data fetching for 180-day traffic analysis"""
+        self._current_traffic_source = traffic_source
+        kwargs['traffic_source'] = traffic_source
+        
         try:
-            # Custom data fetching for 180-day search report - ALL VIDEOS
+            # Custom data fetching for 180-day traffic report - ALL VIDEOS
             self.console.print(f"[dim]Ensuring comprehensive historical data is available for {self.get_report_title()}...[/dim]")
             video_ids = self.ensure_data_available(start_date, end_date, None)
             

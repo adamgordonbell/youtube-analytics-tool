@@ -18,9 +18,9 @@ echo "YouTube Analytics utility functions loaded"
 }
 
 ,organic() {
-    # Show organic views (excluding advertising)
+    # Show organic traffic performance for first 30 days across all videos
     ,setup-venv
-    python main.py --organic "$@"
+    python main.py --first-n-days --n-days 30 --traffic-source "organic" "$@"
 }
 
 ,search() {
@@ -99,10 +99,46 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --first-90-days-traffic --traffic-source-90 "all" "${@}"
 }
 
+,organic-90() {
+    # Analyze organic (non-paid) traffic performance for first 90 days
+    ,setup-venv
+    python main.py --first-90-days-traffic --traffic-source-90 "organic" "${@}"
+}
+
 ,search-180() {
     # Analyze YouTube search performance for first 180 days
     ,setup-venv
-    python main.py --first-180-days-search "${@}"
+    python main.py --first-180-days-traffic --traffic-source-180 "YouTube search" "${@}"
+}
+
+,organic-180() {
+    # Analyze organic (non-paid) traffic performance for first 180 days
+    ,setup-venv
+    python main.py --first-180-days-traffic --traffic-source-180 "organic" "${@}"
+}
+
+,7-day-browse() {
+    # Analyze Browse features performance for first 7 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 7 --traffic-source "Browse features" "${@}"
+}
+
+,7-day-other() {
+    # Analyze Other traffic performance for first 7 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 7 --traffic-source "other" "${@}"
+}
+
+,30-day-organic() {
+    # Analyze organic traffic performance for first 30 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 30 --traffic-source "organic" "${@}"
+}
+
+,30-day-browse() {
+    # Analyze Browse features performance for first 30 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 30 --traffic-source "Browse features" "${@}"
 }
 
 ,traffic() {
@@ -126,7 +162,7 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,setup-venv          - Create/activate virtual environment"
     echo ""
     echo "Reports:"
-    echo "  ,organic             - Show organic views (excluding advertising)"
+    echo "  ,organic             - Show organic traffic (30-day analysis)"
     echo "  ,search              - Show YouTube search traffic analysis"
     echo "  ,all                 - Run all reports"
     echo ""
@@ -140,7 +176,13 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,channel-90          - Analyze Channel pages traffic performance for first 90 days"
     echo "  ,suggested-90        - Analyze Suggested videos performance for first 90 days"
     echo "  ,all-90              - Analyze ALL traffic sources performance for first 90 days"
+    echo "  ,organic-90          - Analyze organic (non-paid) traffic performance for first 90 days"
     echo "  ,search-180          - Analyze YouTube search performance for first 180 days"
+    echo "  ,organic-180         - Analyze organic (non-paid) traffic performance for first 180 days"
+    echo "  ,7-day-browse        - Analyze Browse features performance for first 7 days"
+    echo "  ,7-day-other         - Analyze Other traffic performance for first 7 days"
+    echo "  ,30-day-organic      - Analyze organic traffic performance for first 30 days"
+    echo "  ,30-day-browse       - Analyze Browse features performance for first 30 days"
     echo "  ,traffic VIDEO_ID DATE - Show traffic breakdown (YouTube Studio style)"
     echo ""
     echo "Examples:"

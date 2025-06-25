@@ -16,6 +16,8 @@ class First90DaysTrafficReport(BaseReport):
         traffic_source = getattr(self, '_current_traffic_source', 'YouTube search')
         if traffic_source.lower() == 'all':
             return "📊 FIRST 90 DAYS TOTAL TRAFFIC PERFORMANCE"
+        elif traffic_source.lower() == 'organic':
+            return "🌱 FIRST 90 DAYS ORGANIC TRAFFIC PERFORMANCE"
         else:
             return f"📊 FIRST 90 DAYS {traffic_source.upper()} PERFORMANCE"
     
@@ -96,41 +98,8 @@ class First90DaysTrafficReport(BaseReport):
         ]
     
     def ensure_data_available(self, start_date: date, end_date: date, video_count: Optional[int] = None) -> List[str]:
-        """Override - get ALL videos and backfill comprehensive historical data"""
-        from datetime import timedelta
-        
-        # Get ALL videos ever published (not just recent ones)
-        video_ids = self.fetcher.get_all_published_videos()
-        
-        if not video_ids:
-            return []
-        
-        self.console.print(f"[dim]Found {len(video_ids)} total videos. Backfilling comprehensive historical data...[/dim]")
-        
-        # Backfill all historical data for all videos
-        # This will ensure we have complete 90-day data for every video
-        successful_videos = []
-        for i, video_id in enumerate(video_ids):
-            if i % 10 == 0:  # Progress indicator
-                self.console.print(f"[dim]Processing video {i+1}/{len(video_ids)}...[/dim]")
-            
-            # Get video info to find publish date
-            video_info = self.db.get_video_info(video_id)
-            if not video_info:
-                video_info = self.fetcher.fetch_video_info(video_id)
-                if video_info:
-                    self.db.store_video_info(video_info)
-            
-            if video_info:
-                # Ensure we have full 90 days of data after publish date (but not beyond today)
-                from datetime import date
-                ninety_days_end = video_info.published_date + timedelta(days=89)
-                actual_end = min(ninety_days_end, date.today())  # Don't fetch future data
-                if self.fetcher.ensure_video_data(video_id, video_info.published_date, actual_end):
-                    successful_videos.append(video_id)
-        
-        self.console.print(f"[green]Successfully backfilled data for {len(successful_videos)} videos.[/green]")
-        return successful_videos
+        """Override - get ALL videos and backfill comprehensive 90-day historical data"""
+        return self.ensure_comprehensive_data_available(90)
 
     def run_report(self, start_date, end_date, max_results=10, traffic_source='YouTube search', **kwargs):
         """Override to use custom data fetching for 90-day traffic analysis"""

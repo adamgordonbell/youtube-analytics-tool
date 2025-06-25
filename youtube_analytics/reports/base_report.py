@@ -148,3 +148,39 @@ class BaseReport(ABC):
     def format_number(number: int) -> str:
         """Format number with thousands separator"""
         return f"{number:,}"
+    
+    def ensure_comprehensive_data_available(self, days: int) -> List[str]:
+        """Generic backfill for N days after publication"""
+        from datetime import timedelta, date
+        
+        # Get ALL videos ever published (not just recent ones)
+        video_ids = self.fetcher.get_all_published_videos()
+        
+        if not video_ids:
+            return []
+        
+        self.console.print(f"[dim]Found {len(video_ids)} total videos. Backfilling {days}-day historical data...[/dim]")
+        
+        # Backfill all historical data for all videos
+        # This will ensure we have complete N-day data for every video
+        successful_videos = []
+        for i, video_id in enumerate(video_ids):
+            if i % 10 == 0:  # Progress indicator
+                self.console.print(f"[dim]Processing video {i+1}/{len(video_ids)}...[/dim]")
+            
+            # Get video info to find publish date
+            video_info = self.db.get_video_info(video_id)
+            if not video_info:
+                video_info = self.fetcher.fetch_video_info(video_id)
+                if video_info:
+                    self.db.store_video_info(video_info)
+            
+            if video_info:
+                # Ensure we have full N days of data after publish date (but not beyond today)
+                end_date = video_info.published_date + timedelta(days=days-1)
+                actual_end = min(end_date, date.today())  # Don't fetch future data
+                if self.fetcher.ensure_video_data(video_id, video_info.published_date, actual_end):
+                    successful_videos.append(video_id)
+        
+        self.console.print(f"[green]Successfully backfilled data for {len(successful_videos)} videos.[/green]")
+        return successful_videos
