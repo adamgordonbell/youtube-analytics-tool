@@ -1,69 +1,65 @@
 # YouTube Analytics Tool
 
-A comprehensive CLI tool for analyzing YouTube channel performance with a focus on organic views, search traffic, and keyword analysis.
+A CLI tool for analyzing YouTube channel performance with automatic data fetching and rich reporting.
 
 ## Features
 
 - **Organic Views Analysis**: Exclude advertising traffic to see true organic performance
 - **Search Traffic Breakdown**: Analyze how viewers find your content via YouTube search
-- **Keyword Analysis**: Discover which search terms drive traffic to your channel
-- **Historical Data**: Store and analyze performance trends over time
 - **First Week Performance**: Compare early performance patterns across videos
+- **Automatic Data Fetching**: Tool fetches missing data on-demand
 - **Rich Terminal UI**: Beautiful, colored output with progress indicators
 
 ## Quick Start
 
-1. **Install dependencies**:
+1. **Activate virtual environment**:
    ```bash
-   pip install -r requirements.txt
+   source venv/bin/activate
    ```
 
-2. **Set up YouTube API credentials**:
+2. **Set up YouTube API credentials** (if not already done):
    - Follow the setup guide in `YOUTUBE_ANALYTICS_GUIDE.md`
    - Place your `client_secrets.json` file in the project directory
 
 3. **Run your first report**:
    ```bash
-   python youtube_stats.py --organic
+   python main.py --organic
    ```
 
-## Usage Examples
+## Usage
 
-### Real-time Reports
+### Using Helper Functions (Recommended)
 ```bash
-# Organic views (excluding advertising)
-,organic
-
-# YouTube search traffic only
-,search
-
-# Top search keywords for your channel
-,keywords
-
-# All reports at once
-,all
-```
-
-### Historical Analysis
-```bash
-# Store historical data for a video
-,sync Q8tw6YTD3ac
-
-# Analyze first week performance by traffic source
-,first-week SUBSCRIBER
-,first-week YT_SEARCH
-```
-
-### Utility Functions
-```bash
-# Load functions (run this first)
+# Load helper functions
 source util/functions
 
-# Get help with available commands
-,help
+# Run reports using simple commands
+,organic              # Top organic videos
+,search               # YouTube search traffic
+,all                  # All reports
+,first-week "Browse features" # First week performance by traffic source
+,sync recent          # Sync recent videos
+,sync VIDEO_ID        # Sync specific video
+```
 
-# Set up virtual environment
-,setup-venv
+### Direct Commands
+```bash
+# All reports for last 28 days
+python main.py
+
+# Specific reports
+python main.py --organic
+python main.py --search
+python main.py --first-week
+
+# Custom options
+python main.py --organic --max 15
+python main.py --start 2024-01-01 --end 2024-01-31
+python main.py --first-week --traffic-source "YouTube search"
+
+# Data management
+python main.py --sync recent
+python main.py --sync VIDEO_ID
 ```
 
 ## Traffic Sources

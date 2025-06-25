@@ -20,38 +20,33 @@ echo "YouTube Analytics utility functions loaded"
 ,organic() {
     # Show organic views (excluding advertising)
     ,setup-venv
-    python youtube_stats.py --organic "$@"
+    python main.py --organic "$@"
 }
 
 ,search() {
     # Show YouTube search traffic analysis
     ,setup-venv
-    python youtube_stats.py --search "$@"
-}
-
-,keywords() {
-    # Show top search keywords for channel
-    ,setup-venv
-    python youtube_stats.py --keywords "$@"
+    python main.py --search "$@"
 }
 
 ,all() {
-    # Run all reports (organic, search, keywords)
+    # Run all reports (organic and search)
     ,setup-venv
-    python youtube_stats.py --all "$@"
+    python main.py "$@"
 }
 
 ,sync() {
     # Sync video data to database
     local video_id="$1"
     if [ -z "$video_id" ]; then
-        echo "Error: Please provide a video ID" >&2
+        echo "Error: Please provide a video ID or 'recent'" >&2
         echo "Usage: ,sync VIDEO_ID" >&2
+        echo "Usage: ,sync recent" >&2
         echo "Example: ,sync Q8tw6YTD3ac" >&2
         return 1
     fi
     ,setup-venv
-    python youtube_stats.py --sync "$video_id" "$@"
+    python main.py --sync "$video_id" "${@:2}"
 }
 
 ,first-week() {
@@ -59,12 +54,27 @@ echo "YouTube Analytics utility functions loaded"
     local traffic_source="$1"
     if [ -z "$traffic_source" ]; then
         echo "Error: Please provide a traffic source" >&2
-        echo "Usage: ,first-week TRAFFIC_SOURCE" >&2
-        echo "Available sources: ADVERTISING, YT_SEARCH, SUBSCRIBER, EXT_URL, RELATED_VIDEO, YT_CHANNEL, PLAYLIST, NOTIFICATION, NO_LINK_OTHER, YT_OTHER_PAGE" >&2
+        echo "Usage: ,first-week \"TRAFFIC_SOURCE\"" >&2
+        echo "Common sources: \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\"" >&2
+        echo "All sources: \"Suggested videos\", \"Direct or unknown\", \"Other YouTube features\", \"Playlists\", \"Notifications\"" >&2
         return 1
     fi
     ,setup-venv
-    python youtube_stats.py --first-week --traffic-source "$traffic_source" "${@:2}"
+    python main.py --first-week --traffic-source "$traffic_source" "${@:2}"
+}
+
+,traffic() {
+    # Show traffic breakdown for specific video and date (YouTube Studio style)
+    local video_id="$1"
+    local date="$2"
+    if [ -z "$video_id" ] || [ -z "$date" ]; then
+        echo "Error: Please provide video ID and date" >&2
+        echo "Usage: ,traffic VIDEO_ID YYYY-MM-DD" >&2
+        echo "Example: ,traffic AUCt28gVR6Y 2025-06-19" >&2
+        return 1
+    fi
+    ,setup-venv
+    python main.py --traffic-breakdown "$video_id,$date"
 }
 
 ,help() {
@@ -76,22 +86,26 @@ echo "YouTube Analytics utility functions loaded"
     echo "Reports:"
     echo "  ,organic             - Show organic views (excluding advertising)"
     echo "  ,search              - Show YouTube search traffic analysis"
-    echo "  ,keywords            - Show top search keywords for channel"
     echo "  ,all                 - Run all reports"
     echo ""
     echo "Database:"
-    echo "  ,sync VIDEO_ID       - Store video historical data"
+    echo "  ,sync VIDEO_ID       - Sync specific video data"
+    echo "  ,sync recent         - Sync recent videos"
     echo "  ,first-week SOURCE   - Analyze first week performance by traffic source"
+    echo "  ,traffic VIDEO_ID DATE - Show traffic breakdown (YouTube Studio style)"
     echo ""
     echo "Examples:"
     echo "  ,organic"
+    echo "  ,sync recent"
     echo "  ,sync Q8tw6YTD3ac"
-    echo "  ,first-week YT_SEARCH"
-    echo "  ,first-week SUBSCRIBER"
+    echo "  ,first-week \"YouTube search\""
+    echo "  ,first-week \"Browse features\""
+    echo "  ,traffic AUCt28gVR6Y 2025-06-19"
     echo ""
-    echo "Traffic Sources:"
-    echo "  ADVERTISING, YT_SEARCH, SUBSCRIBER, EXT_URL, RELATED_VIDEO,"
-    echo "  YT_CHANNEL, PLAYLIST, NOTIFICATION, NO_LINK_OTHER, YT_OTHER_PAGE"
+    echo "Common Traffic Sources:"
+    echo "  \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\""
+    echo "All Traffic Sources:"
+    echo "  \"Suggested videos\", \"Direct or unknown\", \"Other YouTube features\", \"Playlists\", \"Notifications\""
 }
 
 # Show help on load
