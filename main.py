@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase, DataFetcher
-from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport
+from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport, SpikeDetectionReport, VideoRankingReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
 console = Console()
@@ -37,19 +37,23 @@ def show_welcome():
 @click.option("--search", is_flag=True, help="Show only search traffic report")  
 @click.option("--first-n-days", is_flag=True, help="Show first N days performance comparison")
 @click.option("--n-days", default=7, help="Number of days for first-n-days analysis (default: 7)")
+@click.option("--start-day", default=0, help="Starting day offset for first-n-days analysis (default: 0)")
 @click.option("--first-90-days-traffic", is_flag=True, help="Show first 90 days traffic performance")
 @click.option("--traffic-source-90", default='YouTube search', help="Traffic source for 90-day analysis")
 @click.option("--first-180-days-traffic", is_flag=True, help="Show first 180 days traffic performance")
 @click.option("--traffic-source-180", default='YouTube search', help="Traffic source for 180-day analysis")
 @click.option("--shorts", is_flag=True, help="Show Shorts detection report")
+@click.option("--spike-detection", is_flag=True, help="Show traffic spike detection report")
+@click.option("--video-ranking", is_flag=True, help="Show video performance ranking report")
+@click.option("--video-id", help="Target video ID for ranking analysis (defaults to most recent)")
 @click.option("--traffic-source", default=TrafficSources.BROWSE_FEATURES, 
-              help=f"Traffic source for first-n-days analysis ({', '.join(TrafficSources.first_week_options())})")
+              help=f"Traffic source for first-n-days and spike detection analysis ({', '.join(TrafficSources.first_week_options())})")
 @click.option("--traffic-breakdown", help="Show traffic breakdown for specific video and date (format: VIDEO_ID,YYYY-MM-DD)")
 @click.option("--sync", help="Sync video data (provide video ID or 'recent' for recent videos)")
 @click.option("--complete-history", is_flag=True, help="When syncing, fetch complete history from publish date to today")
 @click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_n_days, n_days, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
+def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
@@ -140,7 +144,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, first_90_d
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts]):
+    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
@@ -157,7 +161,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, first_90_d
         recent_start = recent_end - timedelta(days=365)  # Not used since we use backfill
         
         report = FirstNDaysReport(db, fetcher)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source, days=n_days):
+        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source, days=n_days, start_day=start_day):
             success_count += 1
     
     if first_90_days_traffic:
@@ -182,6 +186,24 @@ def main(start, end, max_results, days, search, first_n_days, n_days, first_90_d
         # Shorts detection report
         report = ShortsDetectionReport(db, fetcher)
         if report.run_report(start_date, end_date, max_results):
+            success_count += 1
+    
+    if spike_detection:
+        # Spike detection report uses database-only analysis
+        recent_end = date.today() 
+        recent_start = recent_end - timedelta(days=365)  # Not used since we use database only
+        
+        report = SpikeDetectionReport(db, fetcher)
+        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source):
+            success_count += 1
+    
+    if video_ranking:
+        # Video ranking report uses database-only analysis  
+        recent_end = date.today()
+        recent_start = recent_end - timedelta(days=365)  # Not used since we use database only
+        
+        report = VideoRankingReport(db, fetcher)
+        if report.run_report(recent_start, recent_end, max_results, video_id=video_id):
             success_count += 1
     
     # Show completion message

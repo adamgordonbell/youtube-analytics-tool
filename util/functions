@@ -98,7 +98,6 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --first-180-days-traffic --traffic-source-180 "YouTube search" "${@}"
 }
 
-
 ,suggested-180() {
     # Analyze Suggested videos performance for first 90 days
     ,setup-venv
@@ -153,6 +152,60 @@ echo "YouTube Analytics utility functions loaded"
     python main.py --first-n-days --n-days 30 --traffic-source "Browse features" "${@}"
 }
 
+,30-day-external() {
+    # Analyze External traffic performance for first 30 days across all videos
+    ,setup-venv
+    python main.py --first-n-days --n-days 30 --traffic-source "External" "${@}"
+}
+
+,external-180() {
+    # Analyze External traffic performance for first 180 days
+    ,setup-venv
+    python main.py --first-180-days-traffic --traffic-source-180 "External" "${@}"
+}
+
+,31-90-organic() {
+    # Analyze organic traffic performance for days 31-90 (after initial momentum)
+    ,setup-venv
+    python main.py --first-n-days --n-days 60 --start-day 30 --traffic-source "organic" "${@}"
+}
+
+,31-90-browse() {
+    # Analyze Browse features performance for days 31-90 (after initial momentum)
+    ,setup-venv
+    python main.py --first-n-days --n-days 60 --start-day 30 --traffic-source "Browse features" "${@}"
+}
+
+,31-90-search() {
+    # Analyze YouTube search performance for days 31-90 (after initial momentum)
+    ,setup-venv
+    python main.py --first-n-days --n-days 60 --start-day 30 --traffic-source "YouTube search" "${@}"
+}
+
+,31-90-external() {
+    # Analyze External traffic performance for days 31-90 (after initial momentum)
+    ,setup-venv
+    python main.py --first-n-days --n-days 60 --start-day 30 --traffic-source "External" "${@}"
+}
+
+,31-90-suggested() {
+    # Analyze Suggested videos performance for days 31-90 (after initial momentum)
+    ,setup-venv
+    python main.py --first-n-days --n-days 60 --start-day 30 --traffic-source "Suggested videos" "${@}"
+}
+
+,91-365-organic() {
+    # Analyze organic traffic performance for days 31-90 (after initial momentum)
+    ,setup-venv
+    python main.py --first-n-days --n-days 300 --start-day 91 --traffic-source "organic" "${@}"
+}
+
+,spikes() {
+    # Detect traffic spikes using 7-day moving average analysis (organic traffic)
+    ,setup-venv
+    python main.py --spike-detection --traffic-source "organic" "${@}"
+}
+
 ,traffic() {
     # Show traffic breakdown for specific video and date (YouTube Studio style)
     local video_id="$1"
@@ -186,6 +239,7 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,7-day-other         - Other traffic performance for first 7 days"
     echo "  ,30-day-organic      - Organic traffic performance for first 30 days"
     echo "  ,30-day-browse       - Browse features performance for first 30 days"
+    echo "  ,30-day-external     - External traffic performance for first 30 days"
     echo ""
     echo "Extended Period Analysis:"
     echo "  ,search-90           - YouTube search performance for first 90 days"
@@ -197,6 +251,19 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,organic-90          - Organic traffic performance for first 90 days"
     echo "  ,search-180          - YouTube search performance for first 180 days"
     echo "  ,organic-180         - Organic traffic performance for first 180 days"
+    echo "  ,external-180        - External traffic performance for first 180 days"
+    echo ""
+    echo "Gap Analysis (Days 31-90):"
+    echo "  ,31-90-organic       - Organic traffic performance for days 31-90"
+    echo "  ,31-90-browse        - Browse features performance for days 31-90"
+    echo "  ,31-90-search        - YouTube search performance for days 31-90" 
+    echo "  ,31-90-external      - External traffic performance for days 31-90"
+    echo "  ,31-90-suggested     - Suggested videos performance for days 31-90"
+    echo ""
+    echo "Advanced Analysis:"
+    echo "  ,spikes              - Detect traffic spikes using 7-day moving averages"
+    echo "  ,ranking             - Show video performance ranking vs all videos"
+    echo "  ,ranking VIDEO_ID    - Show ranking for specific video"
     echo ""
     echo "Database & Utilities:"
     echo "  ,sync VIDEO_ID       - Sync specific video data"
@@ -209,11 +276,24 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,organic-90 --max 20      # Top 20 videos by 90-day organic performance"
     echo "  ,sync recent              # Sync recent videos"
     echo "  ,traffic AUCt28gVR6Y 2025-06-19  # Traffic breakdown for specific video/date"
+    echo "  ,ranking                  # Show ranking for most recent video"
+    echo "  ,ranking AUCt28gVR6Y      # Show ranking for specific video"
     echo ""
     echo "Common Traffic Sources:"
     echo "  \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\""
     echo "All Traffic Sources:"
     echo "  \"Suggested videos\", \"Direct or unknown\", \"Other YouTube features\", \"Playlists\", \"Notifications\""
+}
+
+# Video Ranking Report Functions
+,ranking() {
+    if [ -n "$1" ]; then
+        # Specific video ID provided
+        python main.py --video-ranking --video-id "$1" "${@:2}"
+    else
+        # No video ID, use most recent
+        python main.py --video-ranking "$@"
+    fi
 }
 
 # Show help on load

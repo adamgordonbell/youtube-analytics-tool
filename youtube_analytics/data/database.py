@@ -246,8 +246,8 @@ class AnalyticsDatabase:
         return results
 
 
-    def get_first_n_days_total(self, video_ids: List[str], days: int = 7, traffic_source: str = TrafficSources.BROWSE_FEATURES) -> Dict[str, Dict]:
-        """Get total views for first N days of each video (no daily breakdown)"""
+    def get_first_n_days_total(self, video_ids: List[str], days: int = 7, traffic_source: str = TrafficSources.BROWSE_FEATURES, start_day: int = 0) -> Dict[str, Dict]:
+        """Get total views for a range of days after publication (no daily breakdown)"""
         if not video_ids:
             return {}
         
@@ -255,6 +255,7 @@ class AnalyticsDatabase:
         cursor = conn.cursor()
         
         placeholders = ','.join(['?'] * len(video_ids))
+        end_day = start_day + days - 1
         
         if traffic_source.lower() == 'all':
             # Sum across all traffic sources
@@ -267,11 +268,11 @@ class AnalyticsDatabase:
                 FROM videos v
                 LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
                 WHERE v.video_id IN ({placeholders})
-                AND dm.days_since_published BETWEEN 0 AND ?
+                AND dm.days_since_published BETWEEN ? AND ?
                 GROUP BY v.video_id, v.title, v.published_date
                 ORDER BY total_views DESC
             '''
-            params = video_ids + [days - 1]
+            params = video_ids + [start_day, end_day]
         elif traffic_source.lower() == 'organic':
             # Exclude advertising traffic
             query = f'''
@@ -283,12 +284,12 @@ class AnalyticsDatabase:
                 FROM videos v
                 LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
                 WHERE v.video_id IN ({placeholders})
-                AND dm.days_since_published BETWEEN 0 AND ?
+                AND dm.days_since_published BETWEEN ? AND ?
                 AND dm.traffic_source != 'Advertising'
                 GROUP BY v.video_id, v.title, v.published_date
                 ORDER BY total_views DESC
             '''
-            params = video_ids + [days - 1]
+            params = video_ids + [start_day, end_day]
         else:
             # Single traffic source
             query = f'''
@@ -300,12 +301,12 @@ class AnalyticsDatabase:
                 FROM videos v
                 LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
                 WHERE v.video_id IN ({placeholders})
-                AND dm.days_since_published BETWEEN 0 AND ?
+                AND dm.days_since_published BETWEEN ? AND ?
                 AND dm.traffic_source = ?
                 GROUP BY v.video_id, v.title, v.published_date
                 ORDER BY total_views DESC
             '''
-            params = video_ids + [days - 1, traffic_source]
+            params = video_ids + [start_day, end_day, traffic_source]
         
         cursor.execute(query, params)
         
@@ -331,6 +332,74 @@ class AnalyticsDatabase:
         conn.close()
         
         return video_ids
+    
+    def get_daily_views_for_spike_analysis(self, video_ids: List[str], traffic_source: str = "organic") -> Dict[str, Dict]:
+        """Get daily views data for spike detection analysis"""
+        if not video_ids:
+            return {}
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(video_ids))
+        
+        if traffic_source.lower() == 'organic':
+            # Exclude advertising traffic, start from day 7 (skip initial momentum)
+            query = f'''
+                SELECT 
+                    v.video_id,
+                    v.title,
+                    v.published_date,
+                    dm.days_since_published,
+                    dm.date,
+                    COALESCE(SUM(dm.views), 0) as daily_views
+                FROM videos v
+                LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                WHERE v.video_id IN ({placeholders})
+                AND dm.days_since_published >= 7
+                AND dm.traffic_source != 'Advertising'
+                GROUP BY v.video_id, v.title, v.published_date, dm.days_since_published, dm.date
+                ORDER BY v.video_id, dm.days_since_published
+            '''
+            params = video_ids
+        else:
+            # Single traffic source, start from day 7
+            query = f'''
+                SELECT 
+                    v.video_id,
+                    v.title,
+                    v.published_date,
+                    dm.days_since_published,
+                    dm.date,
+                    COALESCE(dm.views, 0) as daily_views
+                FROM videos v
+                LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+                WHERE v.video_id IN ({placeholders})
+                AND dm.days_since_published >= 7
+                AND dm.traffic_source = ?
+                ORDER BY v.video_id, dm.days_since_published
+            '''
+            params = video_ids + [traffic_source]
+        
+        cursor.execute(query, params)
+        
+        results = {}
+        for row in cursor.fetchall():
+            video_id, title, published_date, days_since, date_str, daily_views = row
+            if video_id not in results:
+                results[video_id] = {
+                    'title': title,
+                    'published_date': published_date,
+                    'daily_data': []
+                }
+            results[video_id]['daily_data'].append({
+                'days_since_published': days_since,
+                'date': date_str,
+                'views': int(daily_views) if daily_views else 0
+            })
+        
+        conn.close()
+        return results
     
     def get_recent_videos(self, limit: int = 10) -> List[str]:
         """Get most recently published video IDs"""
