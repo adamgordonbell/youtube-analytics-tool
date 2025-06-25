@@ -221,6 +221,53 @@ class AnalyticsDatabase:
         
         conn.close()
         return results
+
+    def get_first_week_daily_breakdown(self, video_ids: List[str], traffic_source: str = TrafficSources.BROWSE_FEATURES) -> Dict[str, Dict]:
+        """Get day-by-day breakdown for first 7 days of each video"""
+        if not video_ids:
+            return {}
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(video_ids))
+        query = f'''
+            SELECT 
+                v.video_id,
+                v.title, 
+                v.published_date,
+                dm.days_since_published,
+                COALESCE(dm.views, 0) as views
+            FROM videos v
+            LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id
+            WHERE v.video_id IN ({placeholders})
+            AND dm.days_since_published BETWEEN 0 AND 6
+            AND dm.traffic_source = ?
+            ORDER BY v.video_id, dm.days_since_published
+        '''
+        
+        params = video_ids + [traffic_source]
+        cursor.execute(query, params)
+        
+        results = {}
+        for row in cursor.fetchall():
+            video_id, title, published_date, days_since, views = row
+            if video_id not in results:
+                results[video_id] = {
+                    'title': title,
+                    'published_date': published_date,
+                    'daily_views': {}
+                }
+            results[video_id]['daily_views'][days_since] = int(views) if views else 0
+        
+        # Fill in missing days with 0 views
+        for video_data in results.values():
+            for day in range(7):
+                if day not in video_data['daily_views']:
+                    video_data['daily_views'][day] = 0
+        
+        conn.close()
+        return results
     
     def get_recent_videos(self, limit: int = 10) -> List[str]:
         """Get most recently published video IDs"""
