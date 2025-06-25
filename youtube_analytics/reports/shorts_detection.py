@@ -103,7 +103,7 @@ class ShortsDetectionReport(BaseReport):
                     f"🎬 [bold yellow]Shorts:[/bold yellow] {shorts_count} videos ({shorts_count/total_count*100:.1f}%)\n"
                     f"📺 [bold blue]Regular Videos:[/bold blue] {regular_count} videos ({regular_count/total_count*100:.1f}%)\n\n"
                     f"👀 [bold green]Shorts Views:[/bold green] {shorts_views:,} ({shorts_views/total_views*100:.1f}% of total views)\n"
-                    f"[dim]Detection method: Duration-based (≤60 seconds = Short)[/dim]",
+                    f"[dim]Detection method: Duration-based (≤3 minutes = Short)[/dim]",
                     style="green",
                     box=box.ROUNDED,
                     title="🎬 Shorts Analysis"

@@ -8,6 +8,7 @@ from .models import VideoInfo, DailyMetric
 from .database import AnalyticsDatabase
 from ..auth import YouTubeClientManager
 from ..config import DEFAULT_DAYS_BACK
+from ..utils import is_video_short
 
 
 class DataFetcher:
@@ -44,8 +45,8 @@ class DataFetcher:
             duration_str = content_details['duration']
             duration_seconds = self._parse_duration(duration_str)
             
-            # Get content type (Short vs Video) from Analytics API
-            is_short_format = self._get_video_content_type(video_id)
+            # Determine if video is a Short based on duration (≤3 minutes)
+            is_short_format = is_video_short(duration_seconds)
             
             return VideoInfo(
                 video_id=video_id,
@@ -91,29 +92,7 @@ class DataFetcher:
         
         return hours * 3600 + minutes * 60 + seconds
     
-    def _get_video_content_type(self, video_id: str) -> Optional[bool]:
-        """Get video content type using duration-based detection
-        
-        Note: The playbackLocationType=10 (Shorts feed) dimension is not available
-        in our current API access level. Using duration as a reliable fallback:
-        - Videos ≤ 60 seconds are very likely Shorts
-        - Videos > 180 seconds are definitely not Shorts
-        
-        Returns:
-            True if video is a Short (≤60s duration)
-            False if video is a regular video (>60s duration)
-            None if unable to determine (no duration data)
-        """
-        # Get video info to check duration
-        video_info = self.db.get_video_info(video_id)
-        if video_info and video_info.duration_seconds is not None:
-            # YouTube Shorts must be 60 seconds or less
-            # This is the most reliable indicator we have access to
-            return video_info.duration_seconds <= 60
-        
-        # If we don't have duration info, we can't determine format
-        # (Avoid recursion by not calling fetch_video_info from within _get_video_content_type)
-        return None  # Cannot determine without duration data
+
     
     def get_studio_category_mapping(self) -> Dict[str, str]:
         """Map API traffic sources to YouTube Studio categories"""
@@ -302,6 +281,15 @@ class DataFetcher:
             print(f"Error fetching recent published videos: {e}")
             return []
     
+    def get_all_published_videos(self) -> List[str]:
+        """Get ALL published video IDs from database (no limit)"""
+        try:
+            # Get all videos from database ordered by publish date (most recent first)
+            return self.db.get_recent_videos(999999)  # Use very large limit to get all
+        except Exception as e:
+            print(f"Error getting all published videos: {e}")
+            return []
+    
     def sync_recent_videos(self, max_videos: int = 10, days_back: int = DEFAULT_DAYS_BACK) -> List[str]:
         """Sync recent videos to the database"""
         video_ids = self.get_recent_videos_from_api(max_videos, days_back)
@@ -362,7 +350,7 @@ class DataFetcher:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT video_id, title FROM videos 
+            SELECT video_id, title, duration_seconds FROM videos 
             WHERE is_short_format IS NULL 
             ORDER BY published_date DESC
             LIMIT ?
@@ -378,29 +366,49 @@ class DataFetcher:
         print(f"Updating content type for {len(videos_to_update)} videos...")
         
         success_count = 0
-        for i, (video_id, title) in enumerate(videos_to_update, 1):
+        for i, (video_id, title, duration_seconds) in enumerate(videos_to_update, 1):
             print(f"[{i}/{len(videos_to_update)}] Getting content type for {video_id[:11]}... ({title[:50]})")
             
             try:
-                is_short_format = self._get_video_content_type(video_id)
+                # Use duration-based detection if we have duration data
+                if duration_seconds is not None:
+                    is_short_format = is_video_short(duration_seconds)
+                else:
+                    # If no duration, fetch video info
+                    video_info = self.fetch_video_info(video_id)
+                    if video_info and video_info.duration_seconds is not None:
+                        is_short_format = is_video_short(video_info.duration_seconds)
+                        # Also update duration in database
+                        conn = sqlite3.connect(self.db.db_path)
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            UPDATE videos 
+                            SET duration_seconds = ?, updated_at = CURRENT_TIMESTAMP
+                            WHERE video_id = ?
+                        ''', (video_info.duration_seconds, video_id))
+                        conn.commit()
+                        conn.close()
+                    else:
+                        is_short_format = None
                 
-                # Update the database
-                conn = sqlite3.connect(self.db.db_path)
-                cursor = conn.cursor()
-                cursor.execute('''
-                    UPDATE videos 
-                    SET is_short_format = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE video_id = ?
-                ''', (is_short_format, video_id))
-                conn.commit()
-                conn.close()
-                
+                # Update the database with Short status
                 if is_short_format is not None:
-                    format_type = "Short" if is_short_format else "Long"
-                    print(f"    ✓ {format_type}")
+                    conn = sqlite3.connect(self.db.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        UPDATE videos 
+                        SET is_short_format = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE video_id = ?
+                    ''', (is_short_format, video_id))
+                    conn.commit()
+                    conn.close()
+                    
+                    format_type = "Short" if is_short_format else "Video"
+                    duration_info = f" ({duration_seconds}s)" if duration_seconds else ""
+                    print(f"    ✓ {format_type}{duration_info}")
                     success_count += 1
                 else:
-                    print(f"    ? Could not determine format (no recent views data)")
+                    print(f"    ? Could not determine format (no duration data)")
                     
             except Exception as e:
                 print(f"    ✗ Error: {e}")

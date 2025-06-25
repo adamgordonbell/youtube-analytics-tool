@@ -37,19 +37,22 @@ class OrganicViewsReport(BaseReport):
     def get_table_columns(self) -> List[Dict[str, str]]:
         return [
             {'name': 'Rank', 'style': 'dim', 'width': 4},
-            {'name': 'Organic Views', 'style': 'green', 'justify': 'right'},
-            {'name': 'Title', 'style': 'white'},
-            {'name': 'Date', 'style': 'cyan', 'width': 8},
-            {'name': 'Organic %', 'style': 'yellow', 'justify': 'right', 'width': 10},
-            {'name': 'Link', 'style': 'blue underline', 'width': 30}
+            {'name': 'Organic Views', 'style': 'green', 'justify': 'right', 'width': 12},
+            {'name': 'Title & Studio Link', 'style': 'white', 'width': 50},
+            {'name': 'Date', 'style': 'cyan', 'width': 10},
+            {'name': 'Organic %', 'style': 'yellow', 'justify': 'right', 'width': 10}
         ]
     
     def format_row(self, row_data: Dict[str, Any]) -> List[str]:
+        # Create multi-line title with YouTube Studio link
+        title = self.truncate_title(row_data['title'], max_length=48)
+        studio_url = f"https://studio.youtube.com/video/{row_data['video_id']}/"
+        title_with_link = f"{title}\n[dim blue]{studio_url}[/dim blue]"
+        
         return [
             f"{row_data['rank']:2d}.",
             self.format_number(row_data['organic_views']),
-            self.truncate_title(row_data['title']),
+            title_with_link,
             self.format_date(row_data['published_date']),
-            f"{row_data['organic_percentage']:.1f}%",
-            f"youtube.com/watch?v={row_data['video_id']}"
+            f"{row_data['organic_percentage']:.1f}%"
         ]

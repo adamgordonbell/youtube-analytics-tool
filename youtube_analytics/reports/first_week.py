@@ -54,7 +54,7 @@ class FirstWeekReport(BaseReport):
     def get_table_columns(self) -> List[Dict[str, str]]:
         return [
             {'name': 'Rank', 'style': 'dim', 'width': 4},
-            {'name': 'Title', 'style': 'white', 'width': 30},
+            {'name': 'Title & Studio Link', 'style': 'white', 'width': 50},
             {'name': 'Published', 'style': 'cyan', 'width': 10},
             {'name': 'Day 1', 'style': 'green', 'justify': 'right', 'width': 6},
             {'name': 'Day 2', 'style': 'green', 'justify': 'right', 'width': 6},
@@ -70,9 +70,14 @@ class FirstWeekReport(BaseReport):
         from datetime import datetime
         published = datetime.strptime(row_data['published_date'], '%Y-%m-%d').strftime('%b %d')
         
+        # Create multi-line title with YouTube Studio link
+        title = self.truncate_title(row_data['title'], max_length=48)
+        studio_url = f"https://studio.youtube.com/video/{row_data['video_id']}/"
+        title_with_link = f"{title}\n[dim blue]{studio_url}[/dim blue]"
+        
         return [
             f"{row_data['rank']}.",
-            self.truncate_title(row_data['title'], max_length=28),
+            title_with_link,
             published,
             self.format_number(row_data['day_0_views']),
             self.format_number(row_data['day_1_views']),

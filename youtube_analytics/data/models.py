@@ -16,20 +16,24 @@ class VideoInfo:
     @property
     def is_short(self) -> bool:
         """Return True if video is a YouTube Short"""
-        # Use explicit Short format flag if available, fallback to heuristics
+        # Use explicit Short format flag if available
         if self.is_short_format is not None:
             return self.is_short_format
         
-        # Fallback: Shorts are typically under 3 minutes and often vertical
-        # This is a best guess without direct API support
-        return self.duration_seconds is not None and self.duration_seconds <= 180
+        # Fallback to duration-based detection using our standard function
+        if self.duration_seconds is not None:
+            from ..utils import is_video_short
+            return is_video_short(self.duration_seconds)
+        
+        # If no data available, assume it's a regular video
+        return False
     
     @property
     def format_type(self) -> str:
-        """Return 'Short' or 'Long' based on format"""
+        """Return 'Short' or 'Video' based on format"""
         if self.is_short_format is None and self.duration_seconds is None:
             return "Unknown"
-        return "Short" if self.is_short else "Long"
+        return "Short" if self.is_short else "Video"
 
 @dataclass
 class DailyMetric:

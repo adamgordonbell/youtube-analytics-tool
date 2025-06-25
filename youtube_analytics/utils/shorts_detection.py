@@ -6,16 +6,16 @@ def is_video_short(duration_seconds: int) -> bool:
     """
     Determine if a video is a YouTube Short based on duration.
     
-    YouTube Shorts must be 60 seconds or less by platform definition.
-    This is the most reliable detection method available.
+    Using 3 minutes (180 seconds) as the cutoff for practical Short detection.
+    This captures both official Shorts and short-form content.
     
     Args:
         duration_seconds: Video duration in seconds
         
     Returns:
-        True if video is a Short (≤60 seconds), False if regular video
+        True if video is a Short (≤180 seconds), False if regular video
     """
-    return duration_seconds <= 60
+    return duration_seconds <= 180
 
 
 def get_video_type_label(duration_seconds: int) -> str:
