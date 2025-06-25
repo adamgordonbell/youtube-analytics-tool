@@ -55,7 +55,7 @@ class First90DaysSearchReport(BaseReport):
         return [
             {'name': 'Rank', 'style': 'dim', 'width': 4},
             {'name': 'Title & Studio Link', 'style': 'white', 'width': 60},
-            {'name': 'Published', 'style': 'cyan', 'width': 10},
+            {'name': 'Published', 'style': 'cyan', 'width': 12},
             {'name': 'Type', 'style': 'magenta', 'width': 8},
             {'name': 'Wk 1', 'style': 'green', 'justify': 'right', 'width': 6},
             {'name': 'Wk 2', 'style': 'green', 'justify': 'right', 'width': 6},
@@ -68,7 +68,7 @@ class First90DaysSearchReport(BaseReport):
     
     def format_row(self, row_data: Dict[str, Any]) -> List[str]:
         from datetime import datetime
-        published = datetime.strptime(row_data['published_date'], '%Y-%m-%d').strftime('%b %d')
+        published = datetime.strptime(row_data['published_date'], '%Y-%m-%d').strftime('%b %d %Y')
         
         # Create multi-line title with YouTube Studio link
         title = self.truncate_title(row_data['title'], max_length=43)
