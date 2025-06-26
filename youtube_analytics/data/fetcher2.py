@@ -309,3 +309,190 @@ class DataFetcher2:
         
         print(f"Backfill completed: {successful_count}/{len(videos)} videos processed")
         return successful_count
+    
+    def _get_all_published_videos(self) -> list:
+        """Get ALL published video IDs from channel using API pagination"""
+        data_client = self.client_manager.get_data_client()
+        if not data_client:
+            return []
+        
+        try:
+            # Get channel ID from an existing video or discover it
+            existing_video = self.db.get_recent_videos(1)
+            if existing_video:
+                video_info = self.db.get_video_info(existing_video[0])
+                if video_info:
+                    channel_id = video_info.channel_id
+                else:
+                    print("Could not get channel ID from database")
+                    return []
+            else:
+                print("No existing videos found to determine channel ID")
+                return []
+            
+            # Get ALL videos from channel using pagination
+            all_video_ids = []
+            next_page_token = None
+            
+            while True:
+                request = data_client.search().list(
+                    part="snippet",
+                    channelId=channel_id,
+                    order="date",
+                    type="video",  
+                    maxResults=50,  # API limit per request
+                    pageToken=next_page_token
+                )
+                response = request.execute()
+                
+                # Extract video IDs from this page
+                for item in response.get('items', []):
+                    video_id = item['id']['videoId']
+                    all_video_ids.append(video_id)
+                
+                # Check if there are more pages
+                next_page_token = response.get('nextPageToken')
+                if not next_page_token:
+                    break
+                
+                print(f"Discovered {len(all_video_ids)} videos so far...")
+                
+            print(f"Total videos discovered: {len(all_video_ids)}")
+            return all_video_ids
+            
+        except Exception as e:
+            print(f"Error getting all published videos: {e}")
+            return []
+    
+    def _update_content_types(self, video_ids: list) -> int:
+        """Update content type information for videos missing it"""
+        import sqlite3
+        from ..utils import is_video_short
+        
+        # Get videos that don't have content type set
+        conn = sqlite3.connect(self.db.db_path)
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(video_ids))
+        cursor.execute(f'''
+            SELECT video_id, title, duration_seconds FROM videos 
+            WHERE video_id IN ({placeholders}) AND is_short_format IS NULL 
+            ORDER BY published_date DESC
+        ''', video_ids)
+        
+        videos_to_update = cursor.fetchall()
+        conn.close()
+        
+        if not videos_to_update:
+            return 0
+        
+        print(f"Updating content type for {len(videos_to_update)} videos...")
+        
+        success_count = 0
+        for i, (video_id, title, duration_seconds) in enumerate(videos_to_update, 1):
+            print(f"[{i}/{len(videos_to_update)}] Getting content type for {video_id[:11]}... ({title[:50]})")
+            
+            try:
+                # Use duration-based detection if we have duration data
+                if duration_seconds is not None:
+                    is_short_format = is_video_short(duration_seconds)
+                else:
+                    # If no duration, fetch video info
+                    video_info = self._fetch_video_info(video_id)
+                    if video_info and video_info.duration_seconds is not None:
+                        is_short_format = is_video_short(video_info.duration_seconds)
+                        # Also update duration in database
+                        conn = sqlite3.connect(self.db.db_path)
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            UPDATE videos 
+                            SET duration_seconds = ?, updated_at = CURRENT_TIMESTAMP
+                            WHERE video_id = ?
+                        ''', (video_info.duration_seconds, video_id))
+                        conn.commit()
+                        conn.close()
+                    else:
+                        is_short_format = None
+                
+                # Update the database with Short status
+                if is_short_format is not None:
+                    conn = sqlite3.connect(self.db.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        UPDATE videos 
+                        SET is_short_format = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE video_id = ?
+                    ''', (is_short_format, video_id))
+                    conn.commit()
+                    conn.close()
+                    
+                    format_type = "Short" if is_short_format else "Video"
+                    duration_info = f" ({duration_seconds}s)" if duration_seconds else ""
+                    print(f"    ✓ {format_type}{duration_info}")
+                    success_count += 1
+                else:
+                    print(f"    ? Could not determine format (no duration data)")
+                    
+            except Exception as e:
+                print(f"    ✗ Error: {e}")
+        
+        return success_count
+    
+    def ensure_all_channel_videos(self) -> dict:
+        """Ensure we have complete video metadata for all channel videos
+        
+        Returns:
+            Dict with total, added, and updated counts
+        """
+        import sqlite3
+        
+        print("Ensuring complete video catalog...")
+        
+        # 1. Get all video IDs from channel
+        all_video_ids = self._get_all_published_videos()
+        if not all_video_ids:
+            print("No videos found from channel API")
+            return {"total": 0, "added": 0, "updated": 0}
+        
+        # 2. Check which ones we're missing in database
+        conn = sqlite3.connect(self.db.db_path)
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(all_video_ids))
+        cursor.execute(f'''
+            SELECT video_id FROM videos 
+            WHERE video_id IN ({placeholders})
+        ''', all_video_ids)
+        
+        existing_ids = {row[0] for row in cursor.fetchall()}
+        conn.close()
+        
+        missing_ids = set(all_video_ids) - existing_ids
+        
+        print(f"Found {len(all_video_ids)} total videos, {len(missing_ids)} missing from database")
+        
+        # 3. Fetch video info for missing videos
+        added_count = 0
+        if missing_ids:
+            print(f"Fetching metadata for {len(missing_ids)} missing videos...")
+            for i, video_id in enumerate(missing_ids, 1):
+                print(f"[{i}/{len(missing_ids)}] Fetching info for {video_id}")
+                video_info = self._fetch_video_info(video_id)
+                if video_info:
+                    self.db.store_video_info(video_info)
+                    added_count += 1
+                    print(f"    ✓ Added {video_info.title[:50]}...")
+                else:
+                    print(f"    ✗ Failed to fetch info")
+        
+        # 4. Update content types for videos missing it
+        updated_count = self._update_content_types(all_video_ids)
+        
+        result = {
+            "total": len(all_video_ids),
+            "added": added_count, 
+            "updated": updated_count
+        }
+        
+        print(f"Video catalog complete: {result['total']} total, {result['added']} added, {result['updated']} updated")
+        return result

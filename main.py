@@ -60,9 +60,10 @@ def show_welcome():
 @click.option("--backfill-oldest-complete-history", is_flag=True, help="Backfill complete history for oldest videos using Fetcher2")
 @click.option("--refresh", is_flag=True, help="Force refresh data when using --video-complete-history")
 @click.option("--max-backfill", default=10, help="Maximum number of oldest videos to backfill when using --backfill-oldest-complete-history")
+@click.option("--update-video-listings", is_flag=True, help="Update complete video catalog for channel (metadata only, no analytics)")
 @click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, sync, complete_history, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, backfill_content_types, show_all):
+def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, sync, complete_history, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, update_video_listings, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
@@ -124,6 +125,17 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
             console.print(f"[green]✅ Successfully backfilled {successful_count} videos[/green]")
         else:
             console.print(f"[yellow]⚠️  No videos were backfilled[/yellow]")
+        return
+    
+    # Handle update video listings with Fetcher2
+    if update_video_listings:
+        console.print("[blue]Updating complete video catalog for channel...[/blue]")
+        fetcher2 = DataFetcher2(db)
+        result = fetcher2.ensure_all_channel_videos()
+        if result["total"] > 0:
+            console.print(f"[green]✅ Video catalog updated: {result['total']} total, {result['added']} added, {result['updated']} updated[/green]")
+        else:
+            console.print(f"[yellow]⚠️  No videos found or processed[/yellow]")
         return
     
     # Handle sync operations
