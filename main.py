@@ -13,6 +13,7 @@ from rich.panel import Panel
 from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase, DataFetcher
+from youtube_analytics.data.fetcher2 import DataFetcher2
 from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport, SpikeDetectionReport, VideoRankingReport, EvergreenVideosReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
@@ -55,9 +56,13 @@ def show_welcome():
 @click.option("--traffic-breakdown", help="Show traffic breakdown for specific video and date (format: VIDEO_ID,YYYY-MM-DD)")
 @click.option("--sync", help="Sync video data (provide video ID or 'recent' for recent videos)")
 @click.option("--complete-history", is_flag=True, help="When syncing, fetch complete history from publish date to today")
+@click.option("--video-complete-history", help="Get complete history for specific video ID using Fetcher2")
+@click.option("--backfill-oldest-complete-history", is_flag=True, help="Backfill complete history for oldest videos using Fetcher2")
+@click.option("--refresh", is_flag=True, help="Force refresh data when using --video-complete-history")
+@click.option("--max-backfill", default=10, help="Maximum number of oldest videos to backfill when using --backfill-oldest-complete-history")
 @click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
+def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, sync, complete_history, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
@@ -99,6 +104,27 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
             console.print("[red]Error: Traffic breakdown format should be VIDEO_ID,YYYY-MM-DD[/red]")
             console.print("[dim]Example: --traffic-breakdown AUCt28gVR6Y,2025-06-19[/dim]")
             return
+    
+    # Handle video complete history with Fetcher2
+    if video_complete_history:
+        console.print(f"[blue]Getting complete history for video {video_complete_history} using Fetcher2...[/blue]")
+        fetcher2 = DataFetcher2(db)
+        if fetcher2.get_video_complete_history(video_complete_history, refresh=refresh):
+            console.print(f"[green]✅ Successfully fetched complete history for video {video_complete_history}[/green]")
+        else:
+            console.print(f"[red]❌ Failed to fetch complete history for video {video_complete_history}[/red]")
+        return
+    
+    # Handle backfill oldest complete history with Fetcher2
+    if backfill_oldest_complete_history:
+        console.print(f"[blue]Backfilling complete history for up to {max_backfill} oldest videos...[/blue]")
+        fetcher2 = DataFetcher2(db)
+        successful_count = fetcher2.backfill_oldest_videos_complete_history(max_backfill)
+        if successful_count > 0:
+            console.print(f"[green]✅ Successfully backfilled {successful_count} videos[/green]")
+        else:
+            console.print(f"[yellow]⚠️  No videos were backfilled[/yellow]")
+        return
     
     # Handle sync operations
     if sync:

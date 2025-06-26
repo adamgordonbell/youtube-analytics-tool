@@ -206,6 +206,7 @@ class DataFetcher:
     def ensure_videos_data(self, video_ids: List[str], start_date: date, end_date: date) -> List[str]:
         """Ensure we have data for multiple videos, return list of successfully processed videos"""
         successful = []
+        return successful  #ToDo remove all this
         
         for video_id in video_ids:
             if self.ensure_video_data(video_id, start_date, end_date):
