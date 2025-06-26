@@ -9,16 +9,15 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from ..data import AnalyticsDatabase, DataFetcher, VideoMetrics
+from ..data import AnalyticsDatabase, VideoMetrics
 from ..config import DEFAULT_MAX_RESULTS
 
 
 class BaseReport(ABC):
     """Base class for all reports with automatic data fetching"""
     
-    def __init__(self, db: Optional[AnalyticsDatabase] = None, fetcher: Optional[DataFetcher] = None):
+    def __init__(self, db: Optional[AnalyticsDatabase] = None):
         self.db = db or AnalyticsDatabase()
-        self.fetcher = fetcher or DataFetcher(self.db)
         self.console = Console()
     
     @abstractmethod

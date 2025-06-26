@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich import box
 
 from .base_report import BaseReport
-from ..data import AnalyticsDatabase, DataFetcher, VideoMetrics
+from ..data import AnalyticsDatabase, VideoMetrics
 from ..utils import is_video_short, get_video_type_label, get_video_type_emoji, format_duration
 
 

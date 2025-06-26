@@ -105,14 +105,12 @@ class TrafficBreakdownReport(BaseReport):
                 self.console.print(f"[red]Video {video_id} not found in database[/red]")
                 return False
             
-            # Ensure we have data for that date
-            self.fetcher.ensure_video_data(video_id, target_date, target_date)
-            
-            # Get breakdown data
+            # Get breakdown data from database
             breakdown_data = self.get_traffic_breakdown_for_video_date(video_id, target_date)
             
             if breakdown_data['total_views'] == 0:
                 self.console.print(f"[yellow]No data available for {video_id} on {target_date}[/yellow]")
+                self.console.print(f"[dim]Tip: Use --backfill-oldest-complete-history or --video-complete-history {video_id} to fetch data[/dim]")
                 return False
             
             # Display header with video info

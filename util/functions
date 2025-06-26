@@ -34,18 +34,30 @@ echo "YouTube Analytics utility functions loaded"
     python main.py "$@"
 }
 
-,sync() {
-    # Sync video data to database
+,update-videos() {
+    # Update complete video catalog for channel
+    ,setup-venv
+    python main.py --update-video-listings
+}
+
+,backfill() {
+    # Backfill oldest videos complete history
+    local count="${1:-10}"
+    ,setup-venv
+    python main.py --backfill-oldest-complete-history --max-backfill "$count"
+}
+
+,get-video() {
+    # Get complete history for specific video
     local video_id="$1"
     if [ -z "$video_id" ]; then
-        echo "Error: Please provide a video ID or 'recent'" >&2
-        echo "Usage: ,sync VIDEO_ID" >&2
-        echo "Usage: ,sync recent" >&2
-        echo "Example: ,sync Q8tw6YTD3ac" >&2
+        echo "Error: Please provide a video ID" >&2
+        echo "Usage: ,get-video VIDEO_ID" >&2
+        echo "Example: ,get-video Q8tw6YTD3ac" >&2
         return 1
     fi
     ,setup-venv
-    python main.py --sync "$video_id" "${@:2}"
+    python main.py --video-complete-history "$video_id"
 }
 
 
@@ -266,19 +278,20 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,ranking             - Show video performance ranking vs all videos"
     echo "  ,ranking VIDEO_ID    - Show ranking for specific video"
     echo ""
-    echo "Database & Utilities:"
-    echo "  ,sync VIDEO_ID       - Sync specific video data"
-    echo "  ,sync recent         - Sync recent videos"
+    echo "Data Management:"
+    echo "  ,update-videos       - Update complete video catalog for channel"
+    echo "  ,backfill [N]        - Backfill N oldest videos (default: 10)"
+    echo "  ,get-video VIDEO_ID  - Get complete history for specific video"
     echo "  ,traffic VIDEO_ID DATE - Show traffic breakdown (YouTube Studio style)"
     echo ""
     echo "Examples:"
+    echo "  ,update-videos            # Get all channel videos first"
+    echo "  ,backfill 5               # Backfill 5 oldest videos with complete history"
+    echo "  ,get-video Q8tw6YTD3ac    # Get complete history for specific video"
     echo "  ,7-day-browse --max 10    # Top 10 videos by 7-day browse performance"
     echo "  ,30-day-organic --max 15  # Top 15 videos by 30-day organic performance"
-    echo "  ,organic-90 --max 20      # Top 20 videos by 90-day organic performance"
-    echo "  ,sync recent              # Sync recent videos"
     echo "  ,traffic AUCt28gVR6Y 2025-06-19  # Traffic breakdown for specific video/date"
-    echo "  ,ranking                  # Show ranking for most recent video"
-    echo "  ,ranking AUCt28gVR6Y      # Show ranking for specific video"
+    echo "  ,ranking Q8tw6YTD3ac      # Show ranking for specific video"
     echo ""
     echo "Common Traffic Sources:"
     echo "  \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\""
