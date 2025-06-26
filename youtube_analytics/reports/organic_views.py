@@ -27,7 +27,7 @@ class OrganicViewsReport(BaseReport):
                     'published_date': metrics.published_date,
                     'organic_views': metrics.organic_views,
                     'total_views': metrics.total_views,
-                    'organic_percentage': (metrics.organic_views / metrics.total_views * 100) if metrics.total_views > 0 else 0
+                    'organic_percentage': (metrics.organic_views / metrics.total_views * 100) if (metrics.total_views and metrics.total_views > 0 and metrics.organic_views is not None) else 0
                 })
         
         # Sort by organic views descending

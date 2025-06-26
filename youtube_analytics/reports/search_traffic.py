@@ -27,7 +27,7 @@ class SearchTrafficReport(BaseReport):
                     'published_date': metrics.published_date,
                     'search_views': metrics.search_views,
                     'total_views': metrics.total_views,
-                    'search_percentage': (metrics.search_views / metrics.total_views * 100) if metrics.total_views > 0 else 0
+                    'search_percentage': (metrics.search_views / metrics.total_views * 100) if (metrics.total_views and metrics.total_views > 0 and metrics.search_views is not None) else 0
                 })
         
         # Sort by search views descending

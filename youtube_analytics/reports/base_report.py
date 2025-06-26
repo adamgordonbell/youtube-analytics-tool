@@ -51,22 +51,25 @@ class BaseReport(ABC):
         if video_count is None:
             video_count = self.get_required_video_count()
         
+        # Handle case where video_count is still None (meaning ALL videos)
+        fetch_count = video_count * 2 if video_count else 500  # Reasonable max for "all"
+        
         # Try to get video IDs from API for the period
         try:
-            video_ids = self.fetcher.get_recent_videos_from_api(video_count * 2, (end_date - start_date).days)
+            video_ids = self.fetcher.get_recent_videos_from_api(fetch_count, (end_date - start_date).days)
             if not video_ids:
                 self.console.print("[yellow]No videos found via API, falling back to database videos[/yellow]")
-                db_videos = self.db.get_recent_videos(video_count * 2)
+                db_videos = self.db.get_recent_videos(fetch_count)
                 video_ids = db_videos[:video_count] if db_videos else []
         except Exception as e:
             if self.is_quota_exceeded_error(e):
                 self.console.print("[yellow]API quota exceeded. Using recent videos from database instead.[/yellow]")
-                db_videos = self.db.get_recent_videos(video_count * 2)
+                db_videos = self.db.get_recent_videos(fetch_count)
                 video_ids = db_videos[:video_count] if db_videos else []
             else:
                 self.console.print(f"[red]Error fetching videos from API: {e}[/red]")
                 self.console.print("[yellow]Falling back to database videos[/yellow]")
-                db_videos = self.db.get_recent_videos(video_count * 2)
+                db_videos = self.db.get_recent_videos(fetch_count)
                 video_ids = db_videos[:video_count] if db_videos else []
         
         if not video_ids:

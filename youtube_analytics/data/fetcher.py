@@ -205,8 +205,8 @@ class DataFetcher:
     
     def ensure_videos_data(self, video_ids: List[str], start_date: date, end_date: date) -> List[str]:
         """Ensure we have data for multiple videos, return list of successfully processed videos"""
-        successful = []
-        return successful  #ToDo remove all this
+        # Return videos that exist in database (stubbed for migration to fetcher2)
+        return [v for v in video_ids if v in self.db.get_all_video_ids()]
         
         for video_id in video_ids:
             if self.ensure_video_data(video_id, start_date, end_date):
