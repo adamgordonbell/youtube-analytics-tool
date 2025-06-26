@@ -275,8 +275,10 @@ echo "YouTube Analytics utility functions loaded"
     echo ""
     echo "Advanced Analysis:"
     echo "  ,spikes              - Detect traffic spikes using 7-day moving averages"
-    echo "  ,ranking             - Show video performance ranking vs all videos"
-    echo "  ,ranking VIDEO_ID    - Show ranking for specific video"
+    echo "  ,ranking             - Show video performance ranking vs recent 25 videos (default)"
+    echo "  ,ranking VIDEO_ID    - Show ranking for specific video vs recent 25 videos"
+    echo "  ,ranking --max N     - Compare against N most recent eligible videos"
+    echo "  ,ranking --all-videos - Compare against all videos in database"
     echo ""
     echo "Data Management:"
     echo "  ,update-videos       - Update complete video catalog for channel"
@@ -301,11 +303,12 @@ echo "YouTube Analytics utility functions loaded"
 
 # Video Ranking Report Functions
 ,ranking() {
-    if [ -n "$1" ]; then
-        # Specific video ID provided
+    ,setup-venv
+    if [ -n "$1" ] && [[ "$1" != --* ]]; then
+        # First argument is a video ID (doesn't start with --)
         python main.py --video-ranking --video-id "$1" "${@:2}"
     else
-        # No video ID, use most recent
+        # No video ID, use most recent with all arguments
         python main.py --video-ranking "$@"
     fi
 }

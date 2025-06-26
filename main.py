@@ -47,6 +47,8 @@ def show_welcome():
 @click.option("--spike-detection", is_flag=True, help="Show traffic spike detection report")
 @click.option("--video-ranking", is_flag=True, help="Show video performance ranking report")
 @click.option("--video-id", help="Target video ID for ranking analysis (defaults to most recent)")
+@click.option("--max", "max_videos", type=int, help="Maximum number of videos to compare against in ranking (default: 25)")
+@click.option("--all-videos", is_flag=True, help="Compare against all videos in ranking (overrides --max)")
 @click.option("--evergreen", is_flag=True, help="Show evergreen videos report (current performance of older videos)")
 @click.option("--evergreen-days", default=30, help="Days of recent traffic to analyze for evergreen report (default: 30)")
 @click.option("--evergreen-min-age", default=60, help="Minimum age in days for videos to be considered evergreen (default: 60)")
@@ -62,7 +64,7 @@ def show_welcome():
 @click.option("--update-video-listings", is_flag=True, help="Update complete video catalog for channel (metadata only, no analytics)")
 
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, update_video_listings, show_all):
+def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, max_videos, all_videos, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, update_video_listings, show_all):
     """🎬 YouTube Analytics Tool
     
     Two-phase workflow: First populate data, then run reports offline.
@@ -208,8 +210,16 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_end = date.today()
         recent_start = recent_end - timedelta(days=365)  # Not used since we use database only
         
+        # Handle max_videos parameter - default to 25 unless --all-videos is used
+        if all_videos:
+            ranking_max_videos = None  # None means all videos
+        elif max_videos:
+            ranking_max_videos = max_videos
+        else:
+            ranking_max_videos = 25  # Default
+        
         report = VideoRankingReport(db)
-        if report.run_report(recent_start, recent_end, max_results, video_id=video_id):
+        if report.run_report(recent_start, recent_end, max_results, video_id=video_id, max_videos=ranking_max_videos):
             success_count += 1
     
     if evergreen:

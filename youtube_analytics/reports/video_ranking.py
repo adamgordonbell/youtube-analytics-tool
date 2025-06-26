@@ -30,10 +30,35 @@ class VideoRankingReport(BaseReport):
         # Exclude today - we want complete days only
         return max(0, days_since)
     
-    def get_video_ranking_for_traffic_source(self, video_id: str, days: int, traffic_source: str) -> Dict[str, Any]:
-        """Get ranking of all videos for specific traffic source and time period"""
-        # Get all video IDs
-        all_video_ids = self.db.get_all_video_ids()
+    def get_eligible_recent_videos(self, max_videos: int, min_days: int) -> List[str]:
+        """Get most recent N videos that have been published for at least min_days"""
+        from datetime import date
+        
+        # Get a large number of recent videos to filter from
+        all_videos = self.db.get_recent_videos(1000)  # Get up to 1000 recent videos
+        
+        eligible_videos = []
+        today = date.today()
+        
+        for video_id in all_videos:
+            video_info = self.db.get_video_info(video_id)
+            if video_info:
+                days_since = (today - video_info.published_date).days
+                if days_since >= min_days:
+                    eligible_videos.append(video_id)
+                    if len(eligible_videos) >= max_videos:
+                        break
+        
+        return eligible_videos
+    
+    def get_video_ranking_for_traffic_source(self, video_id: str, days: int, traffic_source: str, max_videos: int = None) -> Dict[str, Any]:
+        """Get ranking of videos for specific traffic source and time period"""
+        # Get video IDs - either all or recent N eligible videos
+        if max_videos is None:
+            all_video_ids = self.db.get_all_video_ids()
+        else:
+            # Get recent videos that have enough days for comparison
+            all_video_ids = self.get_eligible_recent_videos(max_videos, days)
         
         if not all_video_ids:
             return {
@@ -87,11 +112,21 @@ class VideoRankingReport(BaseReport):
     def prepare_data(self, video_metrics: List[VideoMetrics], video_id: str = None, **kwargs) -> List[Dict[str, Any]]:
         """Prepare ranking data for multiple traffic sources"""
         if not video_id:
-            # Default to most recent video
-            recent_videos = self.db.get_recent_videos(1)
-            if not recent_videos:
+            # Default to most recent video that has at least 1 day of data
+            from datetime import date
+            recent_videos = self.db.get_recent_videos(50)  # Get more videos to find eligible one
+            today = date.today()
+            
+            for candidate_video_id in recent_videos:
+                video_info = self.db.get_video_info(candidate_video_id)
+                if video_info:
+                    days_since = (today - video_info.published_date).days
+                    if days_since > 0:  # Need at least 1 day
+                        video_id = candidate_video_id
+                        break
+            
+            if not video_id:
                 return []
-            video_id = recent_videos[0]
         
         # Calculate days since published
         days = self.calculate_days_since_published(video_id)
@@ -103,12 +138,15 @@ class VideoRankingReport(BaseReport):
         if not target_video:
             return []
         
+        # Get max_videos parameter from kwargs
+        max_videos = kwargs.get('max_videos', None)
+        
         # Traffic sources to analyze
         traffic_sources = ["Browse features", "YouTube search", "External"]
         
         results = []
         for traffic_source in traffic_sources:
-            ranking_data = self.get_video_ranking_for_traffic_source(video_id, days, traffic_source)
+            ranking_data = self.get_video_ranking_for_traffic_source(video_id, days, traffic_source, max_videos)
             ranking_data['target_video_title'] = target_video.title
             ranking_data['target_video_id'] = video_id
             results.append(ranking_data)
