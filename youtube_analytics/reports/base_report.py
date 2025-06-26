@@ -47,50 +47,12 @@ class BaseReport(ABC):
         pass
     
     def ensure_data_available(self, start_date: date, end_date: date, video_count: Optional[int] = None) -> List[str]:
-        """Ensure we have data for the required videos and date range with quota fallback"""
-        if video_count is None:
-            video_count = self.get_required_video_count()
-        
-        # Handle case where video_count is still None (meaning ALL videos)
-        fetch_count = video_count * 2 if video_count else 500  # Reasonable max for "all"
-        
-        # Try to get video IDs from API for the period
-        try:
-            video_ids = self.fetcher.get_recent_videos_from_api(fetch_count, (end_date - start_date).days)
-            if not video_ids:
-                self.console.print("[yellow]No videos found via API, falling back to database videos[/yellow]")
-                db_videos = self.db.get_recent_videos(fetch_count)
-                video_ids = db_videos[:video_count] if db_videos else []
-        except Exception as e:
-            if self.is_quota_exceeded_error(e):
-                self.console.print("[yellow]API quota exceeded. Using recent videos from database instead.[/yellow]")
-                db_videos = self.db.get_recent_videos(fetch_count)
-                video_ids = db_videos[:video_count] if db_videos else []
-            else:
-                self.console.print(f"[red]Error fetching videos from API: {e}[/red]")
-                self.console.print("[yellow]Falling back to database videos[/yellow]")
-                db_videos = self.db.get_recent_videos(fetch_count)
-                video_ids = db_videos[:video_count] if db_videos else []
-        
-        if not video_ids:
-            return []
-        
-        # Take the top videos we need
-        video_ids = video_ids[:video_count]
-        
-        # Ensure we have data for these videos (quota-aware)
-        try:
-            successful_videos = self.fetcher.ensure_videos_data(video_ids, start_date, end_date)
-        except Exception as e:
-            if self.is_quota_exceeded_error(e):
-                self.console.print("[yellow]API quota exceeded during data fetching. Using existing data only.[/yellow]")
-                # Return videos that exist in database
-                successful_videos = [v for v in video_ids if v in self.db.get_all_video_ids()]
-            else:
-                self.console.print(f"[red]Error ensuring video data: {e}[/red]")
-                successful_videos = [v for v in video_ids if v in self.db.get_all_video_ids()]
-        
-        return successful_videos
+        """Stubbed: Return existing videos from database (migration to fetcher2)"""
+        # Return all videos from database, limit if requested
+        all_videos = self.db.get_all_video_ids()
+        if video_count and video_count < len(all_videos):
+            return all_videos[:video_count]
+        return all_videos
     
     def run_report(self, start_date: date, end_date: date, max_results: int = DEFAULT_MAX_RESULTS, **kwargs) -> bool:
         """Run the complete report with data fetching and display"""
