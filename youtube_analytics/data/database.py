@@ -178,8 +178,8 @@ class AnalyticsDatabase:
                 v.channel_id,
                 v.duration_seconds,
                 COALESCE(SUM(dm.views), 0) as total_views,
-                COALESCE(SUM(CASE WHEN dm.traffic_source != 'ADVERTISING' THEN dm.views ELSE 0 END), 0) as organic_views,
-                COALESCE(SUM(CASE WHEN dm.traffic_source = 'YT_SEARCH' THEN dm.views ELSE 0 END), 0) as search_views
+                COALESCE(SUM(CASE WHEN dm.traffic_source != 'Advertising' THEN dm.views ELSE 0 END), 0) as organic_views,
+                COALESCE(SUM(CASE WHEN dm.traffic_source = 'YouTube search' THEN dm.views ELSE 0 END), 0) as search_views
             FROM videos v
             LEFT JOIN daily_metrics dm ON v.video_id = dm.video_id 
                 AND dm.date BETWEEN ? AND ?

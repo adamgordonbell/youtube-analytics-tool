@@ -8,15 +8,14 @@ A comprehensive YouTube analytics tool with SQLite database storage for advanced
 
 | File | Purpose | Description |
 |------|---------|-------------|
-| `youtube_stats.py` | Main CLI Tool | Real-time analytics reports and database operations |
-| `youtube_analytics_db.py` | Database System | SQLite storage and historical analysis engine |
+| `main.py` | Main CLI Tool | Real-time analytics reports and database operations |
 | `client_secrets.json` | OAuth Config | YouTube Analytics API credentials |
 | `tokens.json` | Auth Tokens | YouTube Analytics API access tokens |
 | `youtube_data_tokens.json` | Data API Tokens | YouTube Data API v3 access tokens |
 | `youtube_analytics.db` | SQLite Database | Historical video performance data |
 | `YOUTUBE_API_SETUP.md` | Setup Guide | API configuration instructions |
 
-## 🎬 Main Tool: youtube_stats.py
+## 🎬 Main Tool: main.py
 
 ### Real-Time Analytics Reports
 
@@ -42,37 +41,37 @@ The main CLI tool provides three core real-time reports:
 #### Sync Commands
 ```bash
 # Sync specific video with 60 days of historical data
-python youtube_stats.py --sync VIDEO_ID
+python main.py --sync VIDEO_ID
 
 # Sync recent videos (in development)
-python youtube_stats.py --sync recent
+python main.py --sync recent
 ```
 
 #### Analysis Commands
 ```bash
 # Compare first week performance across recent videos
-python youtube_stats.py --first-week --traffic-source YT_SEARCH
-python youtube_stats.py --first-week --traffic-source SUBSCRIBER
-python youtube_stats.py --first-week --traffic-source ADVERTISING
+python main.py --first-week --traffic-source YT_SEARCH
+python main.py --first-week --traffic-source SUBSCRIBER
+python main.py --first-week --traffic-source ADVERTISING
 ```
 
 ### Usage Examples
 
 ```bash
 # Default: All three real-time reports
-python youtube_stats.py
+python main.py
 
 # Specific reports
-python youtube_stats.py --organic
-python youtube_stats.py --search  
-python youtube_stats.py --keywords --max 25
+python main.py --organic
+python main.py --search  
+python main.py --keywords --max 25
 
 # Custom date range
-python youtube_stats.py --start 2025-01-01 --end 2025-06-24
+python main.py --start 2025-01-01 --end 2025-06-24
 
 # Database operations
-python youtube_stats.py --sync Q8tw6YTD3ac
-python youtube_stats.py --first-week --traffic-source YT_SEARCH
+python main.py --sync Q8tw6YTD3ac
+python main.py --first-week --traffic-source YT_SEARCH
 ```
 
 ## 🗃️ Database System: youtube_analytics_db.py
@@ -203,14 +202,14 @@ pip install click rich google-api-python-client google-auth-oauthlib analytix
 python -c "from youtube_analytics_db import YouTubeAnalyticsDB; YouTubeAnalyticsDB()"
 
 # Test basic functionality
-python youtube_stats.py --organic
+python main.py --organic
 ```
 
 ### First-Time Setup
 1. Follow `YOUTUBE_API_SETUP.md` for API configuration
 2. Run OAuth flow to generate token files
-3. Sync initial video data: `python youtube_stats.py --sync VIDEO_ID`
-4. Start analysis: `python youtube_stats.py --first-week`
+3. Sync initial video data: `python main.py --sync VIDEO_ID`
+4. Start analysis: `python main.py --first-week`
 
 ## 🔍 Advanced Usage
 
@@ -241,14 +240,14 @@ cursor.execute('''
 ### Performance Monitoring
 ```bash
 # Daily sync routine (could be automated)
-python youtube_stats.py --sync recent
+python main.py --sync recent
 
 # Weekly analysis
-python youtube_stats.py --first-week --traffic-source YT_SEARCH
-python youtube_stats.py --first-week --traffic-source SUBSCRIBER
+python main.py --first-week --traffic-source YT_SEARCH
+python main.py --first-week --traffic-source SUBSCRIBER
 
 # Monthly keyword review
-python youtube_stats.py --keywords --max 25
+python main.py --keywords --max 25
 ```
 
 ## 🛠️ Troubleshooting
@@ -287,7 +286,7 @@ print(f'Daily metrics: {cursor.fetchone()[0]}')
 "
 
 # Test API connectivity
-python youtube_stats.py --keywords --max 5
+python main.py --keywords --max 5
 ```
 
 ## 📈 Future Enhancements

@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase, DataFetcher
-from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport, SpikeDetectionReport, VideoRankingReport
+from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport, SpikeDetectionReport, VideoRankingReport, EvergreenVideosReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
 console = Console()
@@ -46,6 +46,10 @@ def show_welcome():
 @click.option("--spike-detection", is_flag=True, help="Show traffic spike detection report")
 @click.option("--video-ranking", is_flag=True, help="Show video performance ranking report")
 @click.option("--video-id", help="Target video ID for ranking analysis (defaults to most recent)")
+@click.option("--evergreen", is_flag=True, help="Show evergreen videos report (current performance of older videos)")
+@click.option("--evergreen-days", default=30, help="Days of recent traffic to analyze for evergreen report (default: 30)")
+@click.option("--evergreen-min-age", default=60, help="Minimum age in days for videos to be considered evergreen (default: 60)")
+@click.option("--evergreen-type", default="long", help="Content type filter for evergreen report: short, long, or all (default: long)")
 @click.option("--traffic-source", default=TrafficSources.BROWSE_FEATURES, 
               help=f"Traffic source for first-n-days and spike detection analysis ({', '.join(TrafficSources.first_week_options())})")
 @click.option("--traffic-breakdown", help="Show traffic breakdown for specific video and date (format: VIDEO_ID,YYYY-MM-DD)")
@@ -53,7 +57,7 @@ def show_welcome():
 @click.option("--complete-history", is_flag=True, help="When syncing, fetch complete history from publish date to today")
 @click.option("--backfill-content-types", is_flag=True, help="Backfill content type (Short/Long) for videos missing this info")
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
+def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, evergreen, evergreen_days, evergreen_min_age, evergreen_type, traffic_source, traffic_breakdown, sync, complete_history, backfill_content_types, show_all):
     """🎬 YouTube Analytics Tool
     
     Automatically fetches missing data on-demand and provides modular reports.
@@ -111,7 +115,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
             # Sync specific video
             if complete_history:
                 console.print(f"[blue]Backfilling complete history for video {sync}...[/blue]")
-                if fetcher.backfill_video_complete_history(sync):
+                if fetcher.refresh_video_complete_history(sync):
                     console.print(f"[green]✅ Successfully backfilled video {sync} with complete history[/green]")
                 else:
                     console.print(f"[red]❌ Failed to backfill video {sync}[/red]")
@@ -144,7 +148,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection, video_ranking]):
+    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection, video_ranking, evergreen]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
@@ -204,6 +208,12 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         
         report = VideoRankingReport(db, fetcher)
         if report.run_report(recent_start, recent_end, max_results, video_id=video_id):
+            success_count += 1
+    
+    if evergreen:
+        # Evergreen videos report shows current performance of older videos
+        report = EvergreenVideosReport(days_back=evergreen_days, min_age_days=evergreen_min_age, content_type=evergreen_type, db=db, fetcher=fetcher)
+        if report.run_report(max_results=max_results):
             success_count += 1
     
     # Show completion message

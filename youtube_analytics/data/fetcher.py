@@ -349,8 +349,8 @@ class DataFetcher:
         
         return self.ensure_videos_data(video_ids, start_date, end_date)
     
-    def backfill_video_complete_history(self, video_id: str) -> bool:
-        """Backfill all historical data for a video from publish date to today"""
+    def refresh_video_complete_history(self, video_id: str) -> bool:
+        """Refresh all historical data for a video - clears existing data and refetches from scratch"""
         # Get video info
         video_info = self.db.get_video_info(video_id)
         if not video_info:
@@ -360,19 +360,15 @@ class DataFetcher:
                 return False
             self.db.store_video_info(video_info)
         
-        # Fetch from publish date to today
+        # Clear existing data for clean slate
+        print(f"Clearing existing data for video {video_id}")
+        self.db.clear_video_metrics(video_id)
+        
+        # Use standard ensure_video_data to fetch complete history
         today = datetime.now().date()
-        print(f"Backfilling complete history for {video_id} from {video_info.published_date} to {today}")
+        print(f"Fetching complete history for {video_id} from {video_info.published_date} to {today}")
         
-        daily_metrics = self.fetch_daily_analytics(video_id, video_info.published_date, today)
-        if daily_metrics:
-            # Clear existing data to avoid conflicts
-            self.db.clear_video_metrics(video_id)
-            self.db.store_daily_metrics(daily_metrics)
-            print(f"Stored {len(daily_metrics)} daily metrics for {video_id}")
-            return True
-        
-        return False
+        return self.ensure_video_data(video_id, video_info.published_date, today)
     
     def backfill_recent_videos_complete_history(self, max_videos: int = 50) -> List[str]:
         """Backfill complete history for the most recent videos"""
@@ -385,7 +381,7 @@ class DataFetcher:
         successful = []
         for i, video_id in enumerate(video_ids, 1):
             print(f"[{i}/{len(video_ids)}] Processing {video_id}")
-            if self.backfill_video_complete_history(video_id):
+            if self.refresh_video_complete_history(video_id):
                 successful.append(video_id)
         
         print(f"Successfully backfilled {len(successful)} out of {len(video_ids)} videos")

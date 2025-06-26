@@ -240,6 +240,7 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,30-day-organic      - Organic traffic performance for first 30 days"
     echo "  ,30-day-browse       - Browse features performance for first 30 days"
     echo "  ,30-day-external     - External traffic performance for first 30 days"
+    echo "  ,evergreen           - Current performance of evergreen videos (30 days, 60+ days old)"
     echo ""
     echo "Extended Period Analysis:"
     echo "  ,search-90           - YouTube search performance for first 90 days"
@@ -294,6 +295,12 @@ echo "YouTube Analytics utility functions loaded"
         # No video ID, use most recent
         python main.py --video-ranking "$@"
     fi
+}
+
+,evergreen() {
+    # Analyze current performance of evergreen videos (60+ days old, last 30 days traffic)
+    ,setup-venv
+    python main.py --evergreen "${@}"
 }
 
 # Show help on load

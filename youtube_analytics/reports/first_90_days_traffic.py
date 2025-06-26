@@ -97,9 +97,7 @@ class First90DaysTrafficReport(BaseReport):
             self.format_number(row_data['total_90_day_traffic'])
         ]
     
-    def ensure_data_available(self, start_date: date, end_date: date, video_count: Optional[int] = None) -> List[str]:
-        """Override - get ALL videos and backfill comprehensive 90-day historical data"""
-        return self.ensure_comprehensive_data_available(90)
+
 
     def run_report(self, start_date, end_date, max_results=10, traffic_source='YouTube search', **kwargs):
         """Override to use custom data fetching for 90-day traffic analysis"""

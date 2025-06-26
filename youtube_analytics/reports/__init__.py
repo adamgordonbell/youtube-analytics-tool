@@ -9,5 +9,6 @@ from .first_180_days_search import First180DaysSearchReport
 from .shorts_detection import ShortsDetectionReport
 from .spike_detection import SpikeDetectionReport
 from .video_ranking import VideoRankingReport
+from .evergreen_videos import EvergreenVideosReport
 
-__all__ = ["BaseReport", "SearchTrafficReport", "FirstNDaysReport", "TrafficBreakdownReport", "First90DaysTrafficReport", "First180DaysSearchReport", "ShortsDetectionReport", "SpikeDetectionReport", "VideoRankingReport"]
+__all__ = ["BaseReport", "SearchTrafficReport", "FirstNDaysReport", "TrafficBreakdownReport", "First90DaysTrafficReport", "First180DaysSearchReport", "ShortsDetectionReport", "SpikeDetectionReport", "VideoRankingReport", "EvergreenVideosReport"]
