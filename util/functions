@@ -277,8 +277,9 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,spikes              - Detect traffic spikes using 7-day moving averages"
     echo "  ,ranking             - Show video performance ranking vs recent 25 videos (default)"
     echo "  ,ranking VIDEO_ID    - Show ranking for specific video vs recent 25 videos"
-    echo "  ,ranking --max N     - Compare against N most recent eligible videos"
+    echo "  ,ranking --max-videos N - Compare against N most recent eligible videos"
     echo "  ,ranking --all-videos - Compare against all videos in database"
+    echo "  ,subscribers         - Show subscriber growth for last 7 days (or custom dates)"
     echo ""
     echo "Data Management:"
     echo "  ,update-videos       - Update complete video catalog for channel"
@@ -294,6 +295,8 @@ echo "YouTube Analytics utility functions loaded"
     echo "  ,30-day-organic --max 15  # Top 15 videos by 30-day organic performance"
     echo "  ,traffic AUCt28gVR6Y 2025-06-19  # Traffic breakdown for specific video/date"
     echo "  ,ranking Q8tw6YTD3ac      # Show ranking for specific video"
+    echo "  ,subscribers              # Last 7 days subscriber growth + organic views + videos published"
+    echo "  ,subscribers --start 2024-10-01 --end 2024-12-31  # Custom date range"
     echo ""
     echo "Common Traffic Sources:"
     echo "  \"Browse features\", \"YouTube search\", \"Channel pages\", \"Advertising\", \"External\""
@@ -317,6 +320,20 @@ echo "YouTube Analytics utility functions loaded"
     # Analyze current performance of evergreen videos (60+ days old, last 30 days traffic)
     ,setup-venv
     python main.py --evergreen "${@}"
+}
+
+,subscribers() {
+    # Show subscriber growth for last 7 days (or custom date range)
+    ,setup-venv
+    
+    # If no arguments provided, default to last 7 days
+    if [ $# -eq 0 ]; then
+        local end_date=$(date +%Y-%m-%d)
+        local start_date=$(date -d '7 days ago' +%Y-%m-%d 2>/dev/null || date -v-7d +%Y-%m-%d 2>/dev/null)
+        python main.py --subscriber-growth --start "$start_date" --end "$end_date"
+    else
+        python main.py --subscriber-growth "${@}"
+    fi
 }
 
 # Show help on load
