@@ -104,6 +104,10 @@ class First90DaysTrafficReport(BaseReport):
         self._current_traffic_source = traffic_source
         kwargs['traffic_source'] = traffic_source
         
+        # Check if max_videos was passed from CLI (takes precedence over max_results)
+        if 'max_videos' in kwargs:
+            max_results = kwargs['max_videos']
+        
         try:
             # Custom data fetching for 90-day traffic report - ALL VIDEOS
             self.console.print(f"[dim]Ensuring comprehensive historical data is available for {self.get_report_title()}...[/dim]")

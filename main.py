@@ -179,7 +179,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_start = recent_end - timedelta(days=180)  # Look back further for recent videos
         
         report = First90DaysTrafficReport(db)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_90):
+        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_90, max_videos=max_videos):
             success_count += 1
     
     if first_180_days_traffic:
@@ -188,7 +188,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_start = recent_end - timedelta(days=365)  # Look back further for recent videos
         
         report = First180DaysSearchReport(db)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_180):
+        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_180, max_videos=max_videos):
             success_count += 1
     
     if shorts:
