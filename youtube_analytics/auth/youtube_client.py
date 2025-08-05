@@ -76,21 +76,55 @@ class YouTubeClientManager:
         if self._analytics_client is not None:
             return self._analytics_client
         
+        if os.path.exists(YOUTUBE_ANALYTICS_TOKENS_FILE):
+            try:
+                with open(CLIENT_SECRETS_FILE, "r") as f:
+                    secrets = json.load(f)
+                
+                with open(YOUTUBE_ANALYTICS_TOKENS_FILE, "r") as f:
+                    token_data = json.load(f)
+                
+                creds = Credentials(
+                    token=token_data["access_token"],
+                    refresh_token=token_data.get("refresh_token"),
+                    client_id=secrets["installed"]["client_id"],
+                    client_secret=secrets["installed"]["client_secret"],
+                    token_uri="https://oauth2.googleapis.com/token",
+                    scopes=["https://www.googleapis.com/auth/yt-analytics.readonly"]
+                )
+                
+                if creds.valid:
+                    self._analytics_client = build('youtubeAnalytics', 'v2', credentials=creds)
+                    return self._analytics_client
+                elif creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+                    token_data["access_token"] = creds.token
+                    with open(YOUTUBE_ANALYTICS_TOKENS_FILE, "w") as f:
+                        json.dump(token_data, f)
+                    self._analytics_client = build('youtubeAnalytics', 'v2', credentials=creds)
+                    return self._analytics_client
+                    
+            except Exception as e:
+                print(f"Error reading YouTube Analytics tokens: {e}")
+        
+        # Need to authorize for Analytics API
         try:
-            with open(CLIENT_SECRETS_FILE, "r") as f:
-                secrets = json.load(f)
+            scopes = ["https://www.googleapis.com/auth/yt-analytics.readonly"]
+            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes)
+            creds = flow.run_local_server(port=8080)
             
-            with open(YOUTUBE_ANALYTICS_TOKENS_FILE, "r") as f:
-                token_data = json.load(f)
+            # Save tokens for next time
+            token_data = {
+                "access_token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "expires_in": getattr(creds, 'expires_in', None),
+                "scope": " ".join(scopes),
+                "token_type": "Bearer",
+                "refresh_token_expires_in": None
+            }
             
-            creds = Credentials(
-                token=token_data["access_token"],
-                refresh_token=token_data["refresh_token"],
-                client_id=secrets["installed"]["client_id"],
-                client_secret=secrets["installed"]["client_secret"],
-                token_uri="https://oauth2.googleapis.com/token",
-                scopes=["https://www.googleapis.com/auth/yt-analytics.readonly"]
-            )
+            with open(YOUTUBE_ANALYTICS_TOKENS_FILE, "w") as f:
+                json.dump(token_data, f)
             
             self._analytics_client = build('youtubeAnalytics', 'v2', credentials=creds)
             return self._analytics_client
