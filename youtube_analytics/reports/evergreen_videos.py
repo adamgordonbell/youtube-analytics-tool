@@ -89,7 +89,7 @@ class EvergreenVideosReport(BaseReport):
             self.format_date(row_data['published_date'])
         ]
     
-    def run_report(self, days_back=None, min_age_days=None, content_type=None, max_results=20, **kwargs) -> bool:
+    def run_report(self, days_back=None, min_age_days=None, content_type=None, max_results=20, csv_file=None, **kwargs) -> bool:
         """Override to use existing videos from database (no API calls)"""
         if days_back is not None:
             self.days_back = days_back
@@ -129,7 +129,7 @@ class EvergreenVideosReport(BaseReport):
                 return False
             
             # Display report
-            self.display_report(video_metrics, start_date, end_date, max_results, **kwargs)
+            self.display_report(video_metrics, start_date, end_date, max_results, csv_file=csv_file, **kwargs)
             return True
             
         except Exception as e:

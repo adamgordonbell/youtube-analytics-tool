@@ -336,5 +336,77 @@ echo "YouTube Analytics utility functions loaded"
     fi
 }
 
+,breakdown() {
+    # Show first N days traffic source breakdown for all videos
+    local days="${1:-7}"
+    shift || true  # Remove first argument if present
+    ,setup-venv
+    python main.py --first-n-days-breakdown --n-days "$days" "${@}"
+}
+
+,alltime-reports() {
+    # Generate comprehensive all-time traffic source reports (top 30 each)
+    echo "🎬 Generating All-Time Traffic Source Reports..."
+    
+    # Create output directory
+    mkdir -p alltime_reports
+    
+    ,setup-venv
+    
+    echo "📊 Generating Organic Traffic Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "organic" --max 30 --csv "alltime_reports/organic_alltime.csv"
+    
+    echo "🔍 Generating YouTube Search Report..."  
+    python main.py --first-n-days --n-days 2000 --traffic-source "YouTube search" --max 30 --csv "alltime_reports/search_alltime.csv"
+    
+    echo "🌐 Generating External Traffic Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "External" --max 30 --csv "alltime_reports/external_alltime.csv"
+    
+    echo "📱 Generating Browse Features Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Browse features" --max 30 --csv "alltime_reports/browse_alltime.csv"
+    
+    echo "💡 Generating Suggested Videos Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Suggested videos" --max 30 --csv "alltime_reports/suggested_alltime.csv"
+    
+    echo "📺 Generating Channel Pages Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Channel pages" --max 30 --csv "alltime_reports/channel_alltime.csv"
+    
+    echo "🔗 Generating Direct/Unknown Traffic Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Direct or unknown" --max 30 --csv "alltime_reports/direct_alltime.csv"
+    
+    echo "📋 Generating Playlists Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Playlists" --max 30 --csv "alltime_reports/playlists_alltime.csv"
+    
+    echo "🔧 Generating Other YouTube Features Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Other YouTube features" --max 30 --csv "alltime_reports/other_alltime.csv"
+    
+    echo "🔔 Generating Notifications Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Notifications" --max 30 --csv "alltime_reports/notifications_alltime.csv"
+    
+    echo "📱 Generating Shorts Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "Shorts" --max 30 --csv "alltime_reports/shorts_alltime.csv"
+    
+    echo "📺 Generating End Screens Report..."
+    python main.py --first-n-days --n-days 2000 --traffic-source "End screens" --max 30 --csv "alltime_reports/endscreens_alltime.csv"
+    
+    echo "✅ All reports generated in alltime_reports/ folder:"
+    ls -la alltime_reports/*.csv
+    
+    echo ""
+    echo "📊 Report Summary:"
+    echo "- organic_alltime.csv      - All non-advertising traffic"
+    echo "- search_alltime.csv       - YouTube search results"  
+    echo "- external_alltime.csv     - External websites, social media"
+    echo "- browse_alltime.csv       - YouTube browse features, subscriber feeds"
+    echo "- suggested_alltime.csv    - YouTube's algorithmic recommendations"
+    echo "- channel_alltime.csv      - Direct channel page visits"
+    echo "- direct_alltime.csv       - Bookmarks, direct URLs (HUGE SOURCE!)"
+    echo "- playlists_alltime.csv    - Playlist plays"
+    echo "- other_alltime.csv        - Other YouTube features"
+    echo "- notifications_alltime.csv - YouTube notifications"
+    echo "- shorts_alltime.csv       - YouTube Shorts feed"
+    echo "- endscreens_alltime.csv   - End screen clicks (941 total views)"
+}
+
 # Show help on load
 ,help

@@ -1,0 +1,6 @@
+outs:
+- md5: e6bdda9f13d2276133b81f2ddfae0019.dir
+  size: 43708
+  nfiles: 12
+  hash: md5
+  path: alltime_reports

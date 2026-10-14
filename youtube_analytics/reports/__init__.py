@@ -11,5 +11,6 @@ from .spike_detection import SpikeDetectionReport
 from .video_ranking import VideoRankingReport
 from .evergreen_videos import EvergreenVideosReport
 from .subscriber_growth import SubscriberGrowthReport
+from .first_n_days_breakdown import FirstNDaysTrafficBreakdownReport
 
-__all__ = ["BaseReport", "SearchTrafficReport", "FirstNDaysReport", "TrafficBreakdownReport", "First90DaysTrafficReport", "First180DaysSearchReport", "ShortsDetectionReport", "SpikeDetectionReport", "VideoRankingReport", "EvergreenVideosReport", "SubscriberGrowthReport"]
+__all__ = ["BaseReport", "SearchTrafficReport", "FirstNDaysReport", "TrafficBreakdownReport", "First90DaysTrafficReport", "First180DaysSearchReport", "ShortsDetectionReport", "SpikeDetectionReport", "VideoRankingReport", "EvergreenVideosReport", "SubscriberGrowthReport", "FirstNDaysTrafficBreakdownReport"]

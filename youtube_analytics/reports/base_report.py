@@ -1,5 +1,6 @@
 """Base class for all YouTube Analytics reports"""
 
+import csv
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict, Any
@@ -53,7 +54,7 @@ class BaseReport(ABC):
             return all_videos[:video_count]
         return all_videos
     
-    def run_report(self, start_date: date, end_date: date, max_results: int = DEFAULT_MAX_RESULTS, **kwargs) -> bool:
+    def run_report(self, start_date: date, end_date: date, max_results: int = DEFAULT_MAX_RESULTS, csv_file: Optional[str] = None, **kwargs) -> bool:
         """Run the complete report with data fetching and display"""
         try:
             # Ensure data is available
@@ -72,26 +73,15 @@ class BaseReport(ABC):
                 return False
             
             # Prepare and display report
-            self.display_report(video_metrics, start_date, end_date, max_results, **kwargs)
+            self.display_report(video_metrics, start_date, end_date, max_results, csv_file=csv_file, **kwargs)
             return True
             
         except Exception as e:
             self.console.print(f"[red]Error running {self.get_report_title()}: {e}[/red]")
             return False
     
-    def display_report(self, video_metrics: List[VideoMetrics], start_date: date, end_date: date, max_results: int, **kwargs):
+    def display_report(self, video_metrics: List[VideoMetrics], start_date: date, end_date: date, max_results: int, csv_file: Optional[str] = None, **kwargs):
         """Display the formatted report"""
-        # Header
-        title = self.get_report_title()
-        # Don't show date range for first week reports since they show recent videos
-        if "FIRST WEEK" in title:
-            self.console.print(Panel(f"[bold blue]{title}[/bold blue]", 
-                                    box=box.ROUNDED, style="blue"))
-        else:
-            subtitle = f"{start_date} to {end_date}"
-            self.console.print(Panel(f"[bold blue]{title}[/bold blue]\n[dim]{subtitle}[/dim]", 
-                                    box=box.ROUNDED, style="blue"))
-        
         # Prepare data
         prepared_data = self.prepare_data(video_metrics, **kwargs)
         
@@ -101,6 +91,23 @@ class BaseReport(ABC):
         
         # Limit results
         prepared_data = prepared_data[:max_results]
+        
+        # Handle CSV export
+        if csv_file:
+            self.export_to_csv(prepared_data, csv_file)
+            self.console.print(f"[green]✅ Data exported to {csv_file}[/green]")
+            return
+        
+        # Display in terminal
+        title = self.get_report_title()
+        # Don't show date range for first week reports since they show recent videos
+        if "FIRST WEEK" in title:
+            self.console.print(Panel(f"[bold blue]{title}[/bold blue]", 
+                                    box=box.ROUNDED, style="blue"))
+        else:
+            subtitle = f"{start_date} to {end_date}"
+            self.console.print(Panel(f"[bold blue]{title}[/bold blue]\n[dim]{subtitle}[/dim]", 
+                                    box=box.ROUNDED, style="blue"))
         
         # Create table
         table = Table(show_header=True, header_style="bold magenta", box=box.MINIMAL_DOUBLE_HEAD)
@@ -119,6 +126,35 @@ class BaseReport(ABC):
         
         self.console.print(table)
         self.console.print()
+    
+    def export_to_csv(self, prepared_data: List[Dict[str, Any]], csv_file: str):
+        """Export prepared data to CSV file"""
+        if not prepared_data:
+            return
+        
+        columns = self.get_table_columns()
+        
+        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            
+            # Write header
+            header = [col['name'] for col in columns]
+            writer.writerow(header)
+            
+            # Write data rows
+            for i, row_data in enumerate(prepared_data, 1):
+                row_data['rank'] = i  # Add rank for convenience
+                formatted_row = self.format_row(row_data)
+                # Remove Rich formatting tags for CSV
+                clean_row = [self._clean_for_csv(cell) for cell in formatted_row]
+                writer.writerow(clean_row)
+    
+    def _clean_for_csv(self, text: str) -> str:
+        """Remove Rich formatting tags and clean text for CSV export"""
+        import re
+        # Remove Rich markup tags like [bold], [/bold], [green], etc.
+        cleaned = re.sub(r'\[/?[^\]]*\]', '', str(text))
+        return cleaned.strip()
     
     @staticmethod
     def truncate_title(title: str, max_length: int = 40) -> str:

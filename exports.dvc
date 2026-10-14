@@ -1,0 +1,6 @@
+outs:
+- md5: 07debce20cb96bb1fe19059ce06501c4.dir
+  size: 151562
+  nfiles: 17
+  hash: md5
+  path: exports

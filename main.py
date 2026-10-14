@@ -14,7 +14,7 @@ from rich import box
 
 from youtube_analytics.data import AnalyticsDatabase
 from youtube_analytics.data.fetcher2 import DataFetcher2
-from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport, SpikeDetectionReport, VideoRankingReport, EvergreenVideosReport, SubscriberGrowthReport
+from youtube_analytics.reports import SearchTrafficReport, FirstNDaysReport, TrafficBreakdownReport, First90DaysTrafficReport, First180DaysSearchReport, ShortsDetectionReport, SpikeDetectionReport, VideoRankingReport, EvergreenVideosReport, SubscriberGrowthReport, FirstNDaysTrafficBreakdownReport
 from youtube_analytics.config import TrafficSources, DEFAULT_MAX_RESULTS
 
 console = Console()
@@ -37,6 +37,7 @@ def show_welcome():
 
 @click.option("--search", is_flag=True, help="Show only search traffic report")  
 @click.option("--first-n-days", is_flag=True, help="Show first N days performance comparison")
+@click.option("--first-n-days-breakdown", is_flag=True, help="Show first N days traffic source breakdown")
 @click.option("--n-days", default=7, help="Number of days for first-n-days analysis (default: 7)")
 @click.option("--start-day", default=0, help="Starting day offset for first-n-days analysis (default: 0)")
 @click.option("--first-90-days-traffic", is_flag=True, help="Show first 90 days traffic performance")
@@ -65,7 +66,8 @@ def show_welcome():
 @click.option("--update-video-listings", is_flag=True, help="Update complete video catalog for channel (metadata only, no analytics)")
 
 @click.option("--all", "show_all", is_flag=True, help="Show all reports (default)")
-def main(start, end, max_results, days, search, first_n_days, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, max_videos, all_videos, evergreen, evergreen_days, evergreen_min_age, evergreen_type, subscriber_growth, traffic_source, traffic_breakdown, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, update_video_listings, show_all):
+@click.option("--csv", help="Export results to CSV file")
+def main(start, end, max_results, days, search, first_n_days, first_n_days_breakdown, n_days, start_day, first_90_days_traffic, traffic_source_90, first_180_days_traffic, traffic_source_180, shorts, spike_detection, video_ranking, video_id, max_videos, all_videos, evergreen, evergreen_days, evergreen_min_age, evergreen_type, subscriber_growth, traffic_source, traffic_breakdown, video_complete_history, backfill_oldest_complete_history, refresh, max_backfill, update_video_listings, show_all, csv):
     """🎬 YouTube Analytics Tool
     
     Two-phase workflow: First populate data, then run reports offline.
@@ -153,7 +155,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         start_date = end_date - timedelta(days=days)
     
     # Determine which reports to show
-    if not any([search, first_n_days, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection, video_ranking, evergreen, subscriber_growth]):
+    if not any([search, first_n_days, first_n_days_breakdown, first_90_days_traffic, first_180_days_traffic, shorts, spike_detection, video_ranking, evergreen, subscriber_growth]):
         show_all = True  # Default to all reports if none specified
     
     success_count = 0
@@ -161,7 +163,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
     # Run selected reports
     if show_all or search:
         report = SearchTrafficReport(db)
-        if report.run_report(start_date, end_date, max_results):
+        if report.run_report(start_date, end_date, max_results, csv_file=csv):
             success_count += 1
     
     if first_n_days:
@@ -170,7 +172,16 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_start = recent_end - timedelta(days=365)  # Not used since we use backfill
         
         report = FirstNDaysReport(db)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source, days=n_days, start_day=start_day):
+        if report.run_report(recent_start, recent_end, max_results, csv_file=csv, traffic_source=traffic_source, days=n_days, start_day=start_day):
+            success_count += 1
+    
+    if first_n_days_breakdown:
+        # First N days traffic source breakdown report
+        recent_end = date.today()
+        recent_start = recent_end - timedelta(days=365)  # Not used since we use backfill
+        
+        report = FirstNDaysTrafficBreakdownReport(days=n_days, db=db)
+        if report.run_report(recent_start, recent_end, max_results, csv_file=csv):
             success_count += 1
     
     if first_90_days_traffic:
@@ -179,7 +190,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_start = recent_end - timedelta(days=180)  # Look back further for recent videos
         
         report = First90DaysTrafficReport(db)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_90):
+        if report.run_report(recent_start, recent_end, max_results, csv_file=csv, traffic_source=traffic_source_90):
             success_count += 1
     
     if first_180_days_traffic:
@@ -188,13 +199,13 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_start = recent_end - timedelta(days=365)  # Look back further for recent videos
         
         report = First180DaysSearchReport(db)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source_180):
+        if report.run_report(recent_start, recent_end, max_results, csv_file=csv, traffic_source=traffic_source_180):
             success_count += 1
     
     if shorts:
         # Shorts detection report
         report = ShortsDetectionReport(db)
-        if report.run_report(start_date, end_date, max_results):
+        if report.run_report(start_date, end_date, max_results, csv_file=csv):
             success_count += 1
     
     if spike_detection:
@@ -203,7 +214,7 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
         recent_start = recent_end - timedelta(days=365)  # Not used since we use database only
         
         report = SpikeDetectionReport(db)
-        if report.run_report(recent_start, recent_end, max_results, traffic_source=traffic_source):
+        if report.run_report(recent_start, recent_end, max_results, csv_file=csv, traffic_source=traffic_source):
             success_count += 1
     
     if video_ranking:
@@ -220,19 +231,19 @@ def main(start, end, max_results, days, search, first_n_days, n_days, start_day,
             ranking_max_videos = 25  # Default
         
         report = VideoRankingReport(db)
-        if report.run_report(recent_start, recent_end, max_results, video_id=video_id, max_videos=ranking_max_videos):
+        if report.run_report(recent_start, recent_end, max_results, csv_file=csv, video_id=video_id, max_videos=ranking_max_videos):
             success_count += 1
     
     if evergreen:
         # Evergreen videos report shows current performance of older videos
         report = EvergreenVideosReport(days_back=evergreen_days, min_age_days=evergreen_min_age, content_type=evergreen_type, db=db)
-        if report.run_report(max_results=max_results):
+        if report.run_report(max_results=max_results, csv_file=csv):
             success_count += 1
     
     if subscriber_growth:
         # Subscriber growth report between dates
         report = SubscriberGrowthReport(db)
-        if report.run_report(start_date, end_date, max_results):
+        if report.run_report(start_date, end_date, max_results, csv_file=csv):
             success_count += 1
     
     # Show completion message

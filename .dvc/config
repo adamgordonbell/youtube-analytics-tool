@@ -1,0 +1,7 @@
+[core]
+    remote = s3
+    autostage = true
+    analytics = false
+['remote "s3"']
+    url = s3://agb-para-dvc/dvc-youtube-analytics
+    profile = adam-personal
